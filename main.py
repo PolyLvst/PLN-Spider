@@ -1,5 +1,4 @@
-version___ = 'PLN Spider v1.0'
-# Formerly known as Auto PLN 0.4
+version___ = 'PLN Spider v1.1'
 from dotenv import load_dotenv
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
