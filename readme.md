@@ -16,20 +16,22 @@
 - Jangan membuka file excel yang masih dijalankan oleh program
 - Jika ingin melanjutkan dari baris terakhir ubah lah ROW_AWAL ini dapat anda dapatkan dari row number di paling kiri pada excel
 
-- .env -->
-- URL = 'url'
-- USER = 'user'
-- PASSWORD = 'password'
-- EXCEL_PATH = R'.\Document\target.xlsx'
-- ROW_AWAL = 1
-- ROW_AKHIR = 5
-- COL_ID = 'A'
-- COL_PHOTO = 'B'
-- BANYAK_PERCOBAAN = 7 # -- Berapa kali untuk mencoba mencari foto saat internet tidak stabil
-- creator = 'creator'
-- -- Setting Foto --
-- desired_width = 77
-- desired_height = 61
-- base_64_foto_tidak_tersedia = 'base 64 for the default image'
+## config for .env
+```
+URL = 'url'
+USER = 'user'
+PASSWORD = 'password'
+EXCEL_PATH = R'.\Document\target.xlsx'
+ROW_AWAL = 1
+ROW_AKHIR = 5
+COL_ID = 'A'
+COL_PHOTO = 'B'
+BANYAK_PERCOBAAN = 7 # -- Berapa kali untuk mencoba mencari foto saat internet tidak stabil
+creator = 'creator'
+-- Setting Foto --
+desired_width = 77
+desired_height = 61
+base_64_foto_tidak_tersedia = 'base 64 for the default image'
+```
 
 Ini adalah script pertama saya untuk freelance, client saya merupakan pegawai kantor PLN di bagian pemutusan dan penyambungan PLN
