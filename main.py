@@ -192,7 +192,27 @@ def save_photo(source,cur_pos):
     return 'True'
 
 def check_folders():
-    pass
+    folder_doc = './Document'
+    folder_temp_img = './TempImages'
+    print('Checking folder ... ')
+    if os.path.exists(folder_doc) and os.path.exists(folder_temp_img):
+        print(f'Folder OK')
+        return
+    if not os.path.exists(folder_doc) and not os.path.exists(folder_temp_img):
+        os.makedirs(folder_doc)
+        os.makedirs(folder_temp_img)
+        print(f'Folder created : {folder_doc} & {folder_temp_img}')
+        return
+    if not os.path.exists(folder_doc):
+        os.makedirs(folder_doc)
+        print(f'Folder created : {folder_doc}')
+        return
+    if not os.path.exists(folder_temp_img):
+        os.makedirs(folder_temp_img)
+        print(f'Folder created : {folder_temp_img}')
+        return
+    print('Something went wrong ...')
+    exit()
 
 # ------------------- MAIN PROGRAM ------------------
 # Dapat juga berfungsi sebagai module
@@ -218,7 +238,8 @@ if __name__ == '__main__':
     excel_file_path = EXCEL_PATH
     nomer = 0
     base64_foto_tidak_tersedia = find_this['base_64_foto_tidak_tersedia']
-    for row in range(ROW_AWAL,ROW_AKHIR):
+    end_row = ROW_AKHIR+1
+    for row in range(ROW_AWAL,end_row):
         nomer+=1
         workbook = load_workbook(excel_file_path)
         worksheet = workbook.active
