@@ -1,4 +1,4 @@
-version___ = 'PLN Spider v1.1'
+version___ = 'PLN Spider v1.2'
 from dotenv import load_dotenv
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -15,6 +15,7 @@ from openpyxl import utils
 from time import sleep
 import os
 import base64
+import logging
 
 load_dotenv()
 find_this = os.environ
@@ -22,8 +23,8 @@ URL = find_this['URL']
 USER = find_this['USER']
 PASSWORD = find_this['PASSWORD']
 EXCEL_PATH = find_this['EXCEL_PATH']
-ROW_AWAL = find_this['ROW_AWAL']
-ROW_AKHIR = find_this['ROW_AKHIR']
+ROW_AWAL = int(find_this['ROW_AWAL'])
+ROW_AKHIR = int(find_this['ROW_AKHIR'])
 COL_ID = find_this['COL_ID']
 COL_PHOTO = find_this['COL_PHOTO']
 BANYAK_PERCOBAAN = find_this['BANYAK_PERCOBAAN'] # -- Berapa kali untuk mencoba mencari foto saat internet tidak stabil
@@ -46,6 +47,30 @@ def start_web_dv():
     options.set_preference("network.trr.uri", "https://mozilla.cloudflare-dns.com/dns-query")
     driver = webdriver.Firefox(options=options)
     return driver
+
+def Log_write(text,stat='info'):
+    """Available params ->>\ndebug,info,warning,error,critical"""
+    current_date = datetime.now().date()
+    now_time = datetime.now().time()
+    log_file_path = R'./logs/PLN-Spider-'+current_date+' -- '+now_time+'.log'
+    log_filename = log_file_path
+    logging.basicConfig(filename=log_filename, filemode='w', format='%(asctime)s - %(levelname)s - %(message)s', level=logging.DEBUG)
+    # Set the logging level for the selenium logger to WARNING
+    logging.getLogger('selenium').setLevel(logging.WARNING)
+    # Set the logging level for the webdriver logger to WARNING
+    logging.getLogger('webdriver').setLevel(logging.WARNING)
+    # Set the logging level, to prevent unwanted message showing in log file
+    logging.getLogger('urllib3.connectionpool').setLevel(logging.WARNING)
+    print(text)
+    text = text.replace('\n',' ')
+    # Map the level string to a logging level constant
+    level_map = {'debug': logging.DEBUG,
+                 'info': logging.INFO,
+                 'warning': logging.WARNING,
+                 'error': logging.ERROR,
+                 'critical': logging.CRITICAL}
+    log_level = level_map.get(stat.lower(), logging.INFO)
+    logging.log(log_level,text)
 
 def input_login():
     input_login_user.send_keys(USER)
@@ -93,16 +118,16 @@ def lihat_foto(id_pelanggan):
     trying = 1
     final_image_source = ''
     while True:
-        print(f'--> ID : {id_pelanggan}, Percobaan ke : {trying}')
+        Log_write(f'--> ID : {id_pelanggan}, Percobaan ke : {trying}')
         if trying > BANYAK_PERCOBAAN:
             if trying >= BANYAK_PERCOBAAN+1:
-                print('--> Bad connection [Exit]')
+                Log_write('--> Bad connection [Exit]','error')
                 exit()
-            print('--> Bad connection [Trying one last time again]')
+            Log_write('--> Bad connection [Trying one last time again]','warning')
         try:
             element = WebDriverWait(driver,40).until(EC.presence_of_element_located((By.XPATH,'/html/body/div[5]/div[2]/div[1]/div/div/div[1]/div/div[2]/div[1]/div/div/div[1]/div/div[2]/div[1]/div[2]/div[1]')))
         except TimeoutException as e:
-            print(f"--> Timeout exception occurred: [Waiting] trying again")
+            Log_write(f"--> Timeout exception occurred: [Waiting] trying again",'warning')
             sleep(5)
             element = WebDriverWait(driver,40).until(EC.presence_of_element_located((By.XPATH,'/html/body/div[5]/div[2]/div[1]/div/div/div[1]/div/div[2]/div[1]/div/div/div[1]/div/div[2]/div[1]/div[2]/div[1]')))
         # Pojok kiri bawah
@@ -125,23 +150,23 @@ def lihat_foto(id_pelanggan):
         image_source_4 = img_element_4.get_attribute("src")
         if image_source_1 and image_source_2 and image_source_3 and image_source_4:
             if check_photo(image_source_1) == True:
-                print('--> Menggunakan foto pojok kiri bawah')
+                Log_write('--> Menggunakan foto pojok kiri bawah')
                 final_image_source = image_source_1
                 break
             elif check_photo(image_source_2) == True:
-                print('--> Menggunakan foto pojok kanan bawah')
+                Log_write('--> Menggunakan foto pojok kanan bawah')
                 final_image_source = image_source_2
                 break
             elif check_photo(image_source_3) == True:
-                print('--> Menggunakan foto pojok kiri atas')
+                Log_write('--> Menggunakan foto pojok kiri atas')
                 final_image_source = image_source_3
                 break
             elif check_photo(image_source_4) == True:
-                print('--> Menggunakan foto pojok kanan atas')
+                Log_write('--> Menggunakan foto pojok kanan atas')
                 final_image_source = image_source_4
                 break
             else:
-                print('--> Something went wrong')
+                Log_write('--> Something went wrong','error')
                 exit()
         else:
             sleep(5)
@@ -156,7 +181,7 @@ def lihat_foto(id_pelanggan):
         tombol_close.click()
     except ElementClickInterceptedException as e:
         # Handle the exception when the click is not clickable
-        print(f"--> Click action failed: [Waiting and trying again]")
+        Log_write(f"--> Click action failed: [Waiting and trying again]",'warning')
         sleep(5)
         tombol_close = tombol_close_parent.find_element(By.CSS_SELECTOR,'div.GCMY5A5CCP.GCMY5A5CIK.GCMY5A5CHEC')
         tombol_close.click()
@@ -193,24 +218,24 @@ def save_photo(source,cur_pos):
 def check_folders():
     folder_doc = './Document'
     folder_temp_img = './TempImages'
-    print('Checking folder ... ')
+    Log_write('Checking folder ... ')
     if os.path.exists(folder_doc) and os.path.exists(folder_temp_img):
-        print(f'Folder OK')
+        Log_write(f'Folder OK')
         return
     if not os.path.exists(folder_doc) and not os.path.exists(folder_temp_img):
         os.makedirs(folder_doc)
         os.makedirs(folder_temp_img)
-        print(f'Folder created : {folder_doc} & {folder_temp_img}')
+        Log_write(f'Folder created : {folder_doc} & {folder_temp_img}','warning')
         return
     if not os.path.exists(folder_doc):
         os.makedirs(folder_doc)
-        print(f'Folder created : {folder_doc}')
+        Log_write(f'Folder created : {folder_doc}','warning')
         return
     if not os.path.exists(folder_temp_img):
         os.makedirs(folder_temp_img)
-        print(f'Folder created : {folder_temp_img}')
+        Log_write(f'Folder created : {folder_temp_img}','warning')
         return
-    print('Something went wrong ...')
+    Log_write('Something went wrong ... [Folder related]','error')
     exit()
 
 # ------------------- MAIN PROGRAM ------------------
@@ -228,9 +253,9 @@ if __name__ == '__main__':
     if input_login_user and input_login_password:
         input_login()
         click_sidebar()
-        print('Logged in')
+        Log_write('Logged in')
     else:
-        print('Something went wrong ! [User input not found]')
+        Log_write('Something went wrong ! [User input not found]','error')
         driver.quit()
         exit()
 
@@ -246,7 +271,7 @@ if __name__ == '__main__':
         str_pelanggan = id_pelanggan.value
         foto_cell=worksheet[f'{COL_PHOTO}{row}']
         if foto_cell.value == 'True':
-            print(f'No.{nomer} Foto terdeteksi di excel [Skipping] . . . ID : {str_pelanggan}')
+            Log_write(f'No.{nomer} Foto terdeteksi di excel [Skipping] . . . ID : {str_pelanggan}')
             continue
         search_pelanggan(str_pelanggan)
         current_time = datetime.now().time()
@@ -254,19 +279,19 @@ if __name__ == '__main__':
         hour = current_time.hour
         minute = current_time.minute
         second = current_time.second
-        print(f'No.{nomer} Mencari foto . . .')
+        Log_write(f'No.{nomer} Mencari foto . . .')
         data_foto = lihat_foto(str_pelanggan)
         foto_cell.value = save_photo(data_foto,row)
         try:
             workbook.save(EXCEL_PATH)
-            print("--> Workbook updated!")
-            print(f'--> {hour}:{minute}:{second}')
+            Log_write("--> Workbook updated!")
+            Log_write(f'--> {hour}:{minute}:{second}')
             workbook.close()
         except Exception as e:
-            print(f"An error occurred while saving the workbook: {e}")
+            Log_write(f"An error occurred while saving the workbook: {e}",'error')
 
     driver.quit()
-    print('Webdriver flush\nExiting . . .')
-    print('\x1b[1;92mAll done ...')
+    Log_write('Webdriver flush\nExiting . . .')
+    Log_write('\x1b[1;92mAll done ...')
     show_vers()
     exit()
