@@ -27,10 +27,10 @@ ROW_AWAL = int(find_this['ROW_AWAL'])
 ROW_AKHIR = int(find_this['ROW_AKHIR'])
 COL_ID = find_this['COL_ID']
 COL_PHOTO = find_this['COL_PHOTO']
-BANYAK_PERCOBAAN = find_this['BANYAK_PERCOBAAN'] # -- Berapa kali untuk mencoba mencari foto saat internet tidak stabil
+BANYAK_PERCOBAAN = int(find_this['BANYAK_PERCOBAAN']) # -- Berapa kali untuk mencoba mencari foto saat internet tidak stabil
 # -- Setting Foto --
-desired_width = find_this['desired_width']
-desired_height = find_this['desired_height']
+desired_width = int(find_this['desired_width'])
+desired_height = int(find_this['desired_height'])
 
 # Convert huruf menjadi angka untuk index pelanggan
 col_id_num= utils.column_index_from_string(COL_ID)-1
