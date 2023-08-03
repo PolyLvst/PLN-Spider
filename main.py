@@ -52,8 +52,8 @@ def Log_write(text,stat='info'):
     """Available params ->>\ndebug,info,warning,error,critical"""
     text = str(text)
     now__ = datetime.now()
-    now_time = now__.strftime('%d-%m-%Y_%H:%M:%S')
-    log_file_path = R'./logs/PLN-Spider-'+now_time+'.log'
+    now_time = now__.strftime('%d-%m-%Y_%H-%M-%S')
+    log_file_path = './logs/PLN-Spider-'+now_time+'.log'
     log_filename = log_file_path
     logging.basicConfig(filename=log_filename, filemode='w', format='%(asctime)s - %(levelname)s - %(message)s', level=logging.DEBUG)
     # Set the logging level for the selenium logger to WARNING
