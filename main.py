@@ -50,8 +50,9 @@ def start_web_dv():
 
 def Log_write(text,stat='info'):
     """Available params ->>\ndebug,info,warning,error,critical"""
-    current_date = datetime.now().date()
-    now_time = datetime.now().time()
+    text = str(text)
+    current_date = str(datetime.now().date())
+    now_time = str(datetime.now().time())
     log_file_path = R'./logs/PLN-Spider-'+current_date+' -- '+now_time+'.log'
     log_filename = log_file_path
     logging.basicConfig(filename=log_filename, filemode='w', format='%(asctime)s - %(levelname)s - %(message)s', level=logging.DEBUG)
