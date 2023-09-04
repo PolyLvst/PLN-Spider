@@ -1,4 +1,4 @@
-version___ = 'PLN Spider v1.2'
+version___ = 'PLN Spider v1.3'
 from dotenv import load_dotenv
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -106,11 +106,16 @@ def search_pelanggan(id_pelanggan):
         sleep(2)
         filter_tahun.click()
         filter_tahun.click()
+
+def table_filter(idx_bulan=1):
+    # idx_bulan = 1 artinya bulan terbaru atau bulan saat ini
+    # anda bisa menyesuaikan sesuai kebutuhan jika ingin ke bulan sebelumnya
     element = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR,'table.GCMY5A5CMIC')))
     table_element = driver.find_element(By.CSS_SELECTOR,'table.GCMY5A5CMIC')
-    tahun_ = table_element.find_elements(By.TAG_NAME,'tr')
-    tahun_terbaru = tahun_[0]
-    actions.move_to_element(tahun_terbaru).click().perform()
+    bulan_ = table_element.find_elements(By.TAG_NAME,'tr')
+    bulan_pilihan = bulan_[idx_bulan]
+    actions.move_to_element(bulan_pilihan).click().perform()
+    return len(bulan_)
 
 def lihat_foto(id_pelanggan):
     img_button = driver.find_element('xpath','/html/body/div[2]/div/div/div[1]/div[2]/div[1]/div/div[2]/div/div[2]/div[2]/div[1]/div/div/div[1]/div/div[3]/div/div[3]/div/table/tbody/tr[2]/td[2]/div/div/table/tbody/tr/td[1]/img')
@@ -167,8 +172,9 @@ def lihat_foto(id_pelanggan):
                 final_image_source = image_source_4
                 break
             else:
-                Log_write('--> Something went wrong','error')
-                exit()
+                Log_write('--> Foto tidak tersedia','error')
+                final_image_source = False
+                break
         else:
             sleep(5)
         trying+=1
@@ -215,6 +221,19 @@ def save_photo(source,cur_pos):
     # add to worksheet and anchor next to cells
     worksheet.add_image(img, f'{COL_PHOTO}{cur_pos}')
     return 'True'
+
+def search_past_image(past_month,id_pel):
+    Log_write('--> Mencari foto di bulan sebelumnya')
+    for i in range(2,past_month+1):
+        Log_write(f'--> [{i-1}] Bulan sebelumnya')
+        table_filter(i)
+        d_foto = lihat_foto(id_pel)
+        if d_foto == False:
+            continue
+        else:
+            return d_foto
+    Log_write(f'Welp you have gone the wrong way','error')
+    exit()
 
 def check_folders():
     folder_doc = './Document'
@@ -275,6 +294,7 @@ if __name__ == '__main__':
             Log_write(f'No.{nomer} Foto terdeteksi di excel [Skipping] . . . ID : {str_pelanggan}')
             continue
         search_pelanggan(str_pelanggan)
+        banyak_bulan = table_filter()
         current_time = datetime.now().time()
         # Extract hour, minute, and second components
         hour = current_time.hour
@@ -282,7 +302,13 @@ if __name__ == '__main__':
         second = current_time.second
         Log_write(f'No.{nomer} Mencari foto . . .')
         data_foto = lihat_foto(str_pelanggan)
-        foto_cell.value = save_photo(data_foto,row)
+        # Jika tidak menemukan foto pada bulan ini maka memakai bulan sebelumnya
+        if data_foto == False:
+            data_foto = search_past_image(banyak_bulan,str_pelanggan)
+            foto_cell.value = 'False'
+            save_photo(data_foto,row)
+        else:
+            foto_cell.value = save_photo(data_foto,row)
         try:
             workbook.save(EXCEL_PATH)
             Log_write("--> Workbook updated!")
