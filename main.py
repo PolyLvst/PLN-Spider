@@ -1,4 +1,4 @@
-version___ = 'PLN Spider v1.4'
+version___ = 'PLN Spider v1.5'
 from dotenv import load_dotenv
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -27,6 +27,7 @@ ROW_AWAL = int(find_this['ROW_AWAL'])
 ROW_AKHIR = int(find_this['ROW_AKHIR'])
 COL_ID = find_this['COL_ID']
 COL_PHOTO = find_this['COL_PHOTO']
+COL_STAT = find_this['COL_STAT']
 BANYAK_PERCOBAAN = int(find_this['BANYAK_PERCOBAAN']) # -- Berapa kali untuk mencoba mencari foto saat internet tidak stabil
 # -- Setting Foto --
 desired_width = int(find_this['desired_width'])
@@ -309,11 +310,32 @@ def check_folders():
     Log_write('Something went wrong ... [Folder related]','error')
     exit()
 
+def check_status():
+    workbook = load_workbook(EXCEL_PATH)
+    worksheet = workbook.active
+    status = worksheet[f'{COL_STAT}{ROW_AWAL}']
+    if status.value == 'WORKING':
+        Log_write('Working flag detected [Already been checked] ..')
+        return
+    end_row = ROW_AKHIR+1
+    nomer = 0
+    Log_write('Cleaning COL_PHOTO residue .. [Leftover flags]')
+    for row in range(ROW_AWAL,end_row):
+        nomer+=1
+        foto_cell = worksheet[f'{COL_PHOTO}{row}']
+        foto_cell.value = ''
+    status.value = 'WORKING'
+    Log_write('Workbook is clean and ready to be used [First time checkup]')
+    workbook.save(EXCEL_PATH)
+    Log_write("--> Workbook updated!")
+    workbook.close()
+    return
 # ------------------- MAIN PROGRAM ------------------
 # Dapat juga berfungsi sebagai module
 if __name__ == '__main__':
     show_vers()
     check_folders()
+    check_status()
     driver = start_web_dv()
     actions = ActionChains(driver)
     driver.get(URL)
@@ -368,14 +390,20 @@ if __name__ == '__main__':
                 save_photo(data_foto,row)
         else:
             foto_cell.value = save_photo(data_foto,row)
-        try:
-            workbook.save(EXCEL_PATH)
-            Log_write("--> Workbook updated!")
-            Log_write(f'--> {hour}:{minute}:{second}')
-            workbook.close()
-        except Exception as e:
-            Log_write(f"An error occurred while saving the workbook: {e}",'error')
-
+        # try:
+        workbook.save(EXCEL_PATH)
+        Log_write("--> Workbook updated!")
+        Log_write(f'--> {hour}:{minute}:{second}')
+        workbook.close()
+        # except Exception as e:
+        #     Log_write(f"An error occurred while saving the workbook: {e}",'error')
+    workbook = load_workbook(excel_file_path)
+    worksheet = workbook.active
+    status = worksheet[f'{COL_STAT}{ROW_AWAL}']
+    status.value = ''
+    workbook.save(EXCEL_PATH)
+    workbook.close()
+    Log_write("--> Workbook updated! removed WORKING flag")
     driver.quit()
     Log_write('Webdriver flush\nExiting . . .')
     Log_write('\x1b[1;92mAll done ...')

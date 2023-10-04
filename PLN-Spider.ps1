@@ -6,4 +6,5 @@ $file_path = "C:\Users\$current_username\Documents\PLN-Spider"
 
 # Use the file_path as needed
 cd $file_path
+.\venv\Scripts\activate
 py main.py
