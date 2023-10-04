@@ -15,6 +15,10 @@
 - Disarankan memiliki internet yang stabil, jika tidak anda dapat menaikkan BANYAK_PERCOBAAN
 - Jangan membuka file excel yang masih dijalankan oleh program
 - Jika ingin melanjutkan dari baris terakhir ubah lah ROW_AWAL ini dapat anda dapatkan dari row number di paling kiri pada excel
+- Kode pada kolom foto 
+- [True -> Lengkap dan update]
+- [Past -> Bulan ini tidak ada foto, menggunakan foto bulan lalu]
+- [False -> Pelanggan ini tidak mempunyai foto sama sekali]
 
 ## config for .env
 ```

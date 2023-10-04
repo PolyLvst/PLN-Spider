@@ -1,4 +1,4 @@
-version___ = 'PLN Spider v1.3'
+version___ = 'PLN Spider v1.4'
 from dotenv import load_dotenv
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -35,6 +35,14 @@ desired_height = int(find_this['desired_height'])
 # Convert huruf menjadi angka untuk index pelanggan
 col_id_num= utils.column_index_from_string(COL_ID)-1
 col_photo_num = utils.column_index_from_string(COL_PHOTO)-1
+
+# Sleep timer
+sleep_for_filter = 3
+sleep_for_search = 2
+sleep_for_timeout_foto = 15
+sleep_relog = 1200 # 20 Menit
+sleep_retry_foto = 5
+sleep_tombol_close_foto = 5
 def show_vers():
     created_by = find_this['creator']
     print(f'\x1b[1;96m>> Created by : {created_by}\n>> Github : https://github.com/PolyLvst\n\x1b[1;93m@ {version___}\x1b[0m\n')
@@ -73,10 +81,10 @@ def Log_write(text,stat='info'):
     log_level = level_map.get(stat.lower(), logging.INFO)
     logging.log(log_level,text)
 
-def input_login():
-    input_login_user.send_keys(USER)
-    input_login_password.send_keys(PASSWORD)
-    button_login.click()
+def input_login(user,passw,btn):
+    user.send_keys(USER)
+    passw.send_keys(PASSWORD)
+    btn.click()
 
 def click_sidebar():
     # Folder MONITORING DAN LAPORAN
@@ -97,13 +105,13 @@ def search_pelanggan(id_pelanggan):
     tombol_cari = driver.find_element('xpath','/html/body/div[2]/div/div/div[1]/div[2]/div[1]/div/div[2]/div/div[2]/div[2]/div[1]/div/div/div[1]/div/div[1]/div/div[5]/div/table/tbody/tr[2]/td[2]/div/div/table/tbody/tr/td[1]/img')
     tombol_cari.click()
     element = WebDriverWait(driver, 3).until(EC.presence_of_element_located((By.XPATH, '/html/body/div[2]/div/div/div[1]/div[2]/div[1]/div/div[2]/div/div[2]/div[2]/div[1]/div/div/div[1]/div/div[4]/div[1]/div/table/tbody/tr/td[1]/div')))
-    sleep(3)
+    sleep(sleep_for_search)
     filter_tahun = driver.find_element('xpath','/html/body/div[2]/div/div/div[1]/div[2]/div[1]/div/div[2]/div/div[2]/div[2]/div[1]/div/div/div[1]/div/div[4]/div[1]/div/table/tbody/tr/td[1]/div')
     attribut_filter = filter_tahun.get_attribute("class")
     if "GCMY5A5CEIC" in attribut_filter:
         pass
     else:
-        sleep(2)
+        sleep(sleep_for_filter)
         filter_tahun.click()
         filter_tahun.click()
 
@@ -118,6 +126,12 @@ def table_filter(idx_bulan=1):
     return len(bulan_)
 
 def lihat_foto(id_pelanggan):
+    # try:
+    #     obscure_popup = WebDriverWait(driver,40).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div.GCMY5A5CGEC')))
+    #     if obscure_popup:
+    #         Log_write('Popup detected [Attempting to close it]','error')
+    #         obscure_popup.click()
+    # except:
     img_button = driver.find_element('xpath','/html/body/div[2]/div/div/div[1]/div[2]/div[1]/div/div[2]/div/div[2]/div[2]/div[1]/div/div/div[1]/div/div[3]/div/div[3]/div/table/tbody/tr[2]/td[2]/div/div/table/tbody/tr/td[1]/img')
     img_button.click()
     # Wait for the image element to be visible
@@ -132,10 +146,47 @@ def lihat_foto(id_pelanggan):
             Log_write('--> Bad connection [Trying one last time again]','warning')
         try:
             element = WebDriverWait(driver,40).until(EC.presence_of_element_located((By.XPATH,'/html/body/div[5]/div[2]/div[1]/div/div/div[1]/div/div[2]/div[1]/div/div/div[1]/div/div[2]/div[1]/div[2]/div[1]')))
+
         except TimeoutException as e:
             Log_write(f"--> Timeout exception occurred: [Waiting] trying again",'warning')
-            sleep(5)
-            element = WebDriverWait(driver,40).until(EC.presence_of_element_located((By.XPATH,'/html/body/div[5]/div[2]/div[1]/div/div/div[1]/div/div[2]/div[1]/div/div/div[1]/div/div[2]/div[1]/div[2]/div[1]')))
+            sleep(sleep_for_timeout_foto)
+            try:
+                element = WebDriverWait(driver,40).until(EC.presence_of_element_located((By.XPATH,'/html/body/div[5]/div[2]/div[1]/div/div/div[1]/div/div[2]/div[1]/div/div/div[1]/div/div[2]/div[1]/div[2]/div[1]')))
+            except:
+                driver.get(URL)
+                Log_write(f"--> Relogin [Refreshing]","warning")
+                sleep(sleep_relog)
+                driver.get(URL)
+                element = WebDriverWait(driver, 35).until(EC.presence_of_element_located((By.CSS_SELECTOR, '.GCMY5A5CFN')))
+                input_log_user = driver.find_element('id','x-widget-1-input')
+                input_log_password = driver.find_element('id','x-widget-2-input')
+                button_log = driver.find_element('xpath','/html/body/div[3]/div[2]/div[1]/div/div/div[2]/div/div/div/div/table/tbody/tr[2]/td[2]/div/div/table/tbody/tr/td[1]/img')
+                if input_log_user and input_log_password:
+                    input_login(input_log_user,input_log_password,button_log)
+                    click_sidebar()
+                    Log_write('Logged in')
+                else:
+                    Log_write('Something went wrong ! [User input not found]','error')
+                    driver.quit()
+                    exit()
+                search_pelanggan(id_pelanggan)
+                table_filter()
+                Log_write(f'No.{nomer} Mencari foto [Retrying] . . .')
+                data_fotoX = lihat_foto(id_pelanggan)
+                Log_write(f'String data foto : {data_fotoX}')
+                return data_fotoX
+                # # Jika tidak menemukan foto pada bulan ini maka memakai bulan sebelumnya
+                # if data_foto == False:
+                #     data_foto = search_past_image(banyak_bulan,id_pelanggan)
+                #     # Jika tetap tidak menemukan sama sekali foto pada bulan sebelumnya maka gunakan foto tidak tersedia
+                #     if data_foto == False:
+                #         foto_cell.value = 'False'
+                #         save_photo(f'data:image/jpg;base64,{base64_foto_tidak_tersedia}',row)
+                #     else:
+                #         foto_cell.value = 'Past'
+                #         save_photo(data_foto,row)
+                # else:
+                #     foto_cell.value = save_photo(data_foto,row)
         # Pojok kiri bawah
         img_div_parent = driver.find_element('xpath','/html/body/div[5]/div[2]/div[1]/div/div/div[1]/div/div[2]/div[1]/div/div/div[1]/div/div[2]/div[1]/div[2]/div[1]')
         img_element_1 = img_div_parent.find_element(By.CSS_SELECTOR,'img.gwt-Image')
@@ -176,7 +227,7 @@ def lihat_foto(id_pelanggan):
                 final_image_source = False
                 break
         else:
-            sleep(5)
+            sleep(sleep_retry_foto)
         trying+=1
         
     element = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, "/html/body/div[5]/div[1]/div/div/div/div[2]")))
@@ -189,7 +240,7 @@ def lihat_foto(id_pelanggan):
     except ElementClickInterceptedException as e:
         # Handle the exception when the click is not clickable
         Log_write(f"--> Click action failed: [Waiting and trying again]",'warning')
-        sleep(5)
+        sleep(sleep_tombol_close_foto)
         tombol_close = tombol_close_parent.find_element(By.CSS_SELECTOR,'div.GCMY5A5CCP.GCMY5A5CIK.GCMY5A5CHEC')
         tombol_close.click()
     return final_image_source
@@ -224,7 +275,7 @@ def save_photo(source,cur_pos):
 
 def search_past_image(past_month,id_pel):
     Log_write('--> Mencari foto di bulan sebelumnya')
-    for i in range(2,past_month+1):
+    for i in range(2,past_month):
         Log_write(f'--> [{i-1}] Bulan sebelumnya')
         table_filter(i)
         d_foto = lihat_foto(id_pel)
@@ -232,8 +283,8 @@ def search_past_image(past_month,id_pel):
             continue
         else:
             return d_foto
-    Log_write(f'Welp you have gone the wrong way','error')
-    exit()
+    Log_write(f'--> Pelanggan ini tidak mempunyai foto sama sekali','warning')
+    return False
 
 def check_folders():
     folder_doc = './Document'
@@ -271,7 +322,7 @@ if __name__ == '__main__':
     input_login_password = driver.find_element('id','x-widget-2-input')
     button_login = driver.find_element('xpath','/html/body/div[3]/div[2]/div[1]/div/div/div[2]/div/div/div/div/table/tbody/tr[2]/td[2]/div/div/table/tbody/tr/td[1]/img')
     if input_login_user and input_login_password:
-        input_login()
+        input_login(input_login_user,input_login_password,button_login)
         click_sidebar()
         Log_write('Logged in')
     else:
@@ -293,6 +344,9 @@ if __name__ == '__main__':
         if foto_cell.value == 'True':
             Log_write(f'No.{nomer} Foto terdeteksi di excel [Skipping] . . . ID : {str_pelanggan}')
             continue
+        if foto_cell.value == 'Past':
+            Log_write(f'No.{nomer} Foto terdeteksi, foto bulan lalu [Skipping] . . . ID : {str_pelanggan}')
+            continue
         search_pelanggan(str_pelanggan)
         banyak_bulan = table_filter()
         current_time = datetime.now().time()
@@ -305,8 +359,13 @@ if __name__ == '__main__':
         # Jika tidak menemukan foto pada bulan ini maka memakai bulan sebelumnya
         if data_foto == False:
             data_foto = search_past_image(banyak_bulan,str_pelanggan)
-            foto_cell.value = 'False'
-            save_photo(data_foto,row)
+            # Jika tetap tidak menemukan sama sekali foto pada bulan sebelumnya maka gunakan foto tidak tersedia
+            if data_foto == False:
+                foto_cell.value = 'False'
+                save_photo(f'data:image/jpg;base64,{base64_foto_tidak_tersedia}',row)
+            else:
+                foto_cell.value = 'Past'
+                save_photo(data_foto,row)
         else:
             foto_cell.value = save_photo(data_foto,row)
         try:
