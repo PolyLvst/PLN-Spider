@@ -1,4 +1,4 @@
-version___ = 'PLN Spider v1.5'
+version___ = 'PLN Spider v1.6'
 from dotenv import load_dotenv
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -12,8 +12,9 @@ from selenium import webdriver
 from datetime import datetime
 from openpyxl import load_workbook
 from openpyxl import utils
-from time import sleep
+from time import sleep,time
 import os
+import json
 import base64
 import logging
 
@@ -42,7 +43,7 @@ sleep_for_filter = 3
 sleep_for_search = 2
 sleep_for_timeout_foto = 15
 sleep_relog = 1200 # 20 Menit
-sleep_retry_foto = 5
+sleep_retry_foto = 2
 sleep_tombol_close_foto = 5
 def show_vers():
     created_by = find_this['creator']
@@ -141,21 +142,23 @@ def lihat_foto(id_pelanggan):
     while True:
         Log_write(f'--> ID : {id_pelanggan}, Percobaan ke : {trying}')
         if trying > BANYAK_PERCOBAAN:
-            if trying >= BANYAK_PERCOBAAN+1:
-                Log_write('--> Bad connection [Exit]','error')
-                exit()
-            Log_write('--> Bad connection [Trying one last time again]','warning')
+            # if trying >= BANYAK_PERCOBAAN+1:
+            Log_write('--> Bad connection [Exit]','error')
+            exit()
+            # Log_write('--> Bad connection [Trying one last time again]','warning')
         try:
             element = WebDriverWait(driver,40).until(EC.presence_of_element_located((By.XPATH,'/html/body/div[5]/div[2]/div[1]/div/div/div[1]/div/div[2]/div[1]/div/div/div[1]/div/div[2]/div[1]/div[2]/div[1]')))
 
         except TimeoutException as e:
             Log_write(f"--> Timeout exception occurred: [Waiting] trying again",'warning')
+            Log_write(f"--> e : {e}",'warning')
             sleep(sleep_for_timeout_foto)
             try:
                 element = WebDriverWait(driver,40).until(EC.presence_of_element_located((By.XPATH,'/html/body/div[5]/div[2]/div[1]/div/div/div[1]/div/div[2]/div[1]/div/div/div[1]/div/div[2]/div[1]/div[2]/div[1]')))
-            except:
+            except Exception as ef:
                 driver.get(URL)
                 Log_write(f"--> Relogin [Refreshing]","warning")
+                Log_write(f"--> e : {ef}","warning")
                 sleep(sleep_relog)
                 driver.get(URL)
                 element = WebDriverWait(driver, 35).until(EC.presence_of_element_located((By.CSS_SELECTOR, '.GCMY5A5CFN')))
@@ -174,7 +177,7 @@ def lihat_foto(id_pelanggan):
                 table_filter()
                 Log_write(f'No.{nomer} Mencari foto [Retrying] . . .')
                 data_fotoX = lihat_foto(id_pelanggan)
-                Log_write(f'String data foto : {data_fotoX}')
+                # Log_write(f'String data foto : {data_fotoX}')
                 return data_fotoX
                 # # Jika tidak menemukan foto pada bulan ini maka memakai bulan sebelumnya
                 # if data_foto == False:
@@ -201,7 +204,7 @@ def lihat_foto(id_pelanggan):
         img_div_parent = driver.find_element('xpath','/html/body/div[5]/div[2]/div[1]/div/div/div[1]/div/div[2]/div[1]/div/div/div[1]/div/div[1]/div[2]/div[2]/div[1]')
         img_element_4 = img_div_parent.find_element(By.CSS_SELECTOR,'img.gwt-Image')
 
-        wait_src = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.TAG_NAME, "img")))
+        wait_src = WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.TAG_NAME, "img")))
         image_source_1 = img_element_1.get_attribute("src")
         image_source_2 = img_element_2.get_attribute("src")
         image_source_3 = img_element_3.get_attribute("src")
@@ -231,10 +234,10 @@ def lihat_foto(id_pelanggan):
             sleep(sleep_retry_foto)
         trying+=1
         
-    element = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, "/html/body/div[5]/div[1]/div/div/div/div[2]")))
+    element = WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.XPATH, "/html/body/div[5]/div[1]/div/div/div/div[2]")))
     tombol_close_parent = driver.find_element('xpath','/html/body/div[5]/div[1]/div/div/div/div[2]')
-    element = WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, "div.GCMY5A5CCP.GCMY5A5CIK.GCMY5A5CHEC")))
-    wait_tombol = WebDriverWait(driver, 30).until(EC.invisibility_of_element_located((By.CLASS_NAME, 'GCMY5A5CJJ')))
+    element = WebDriverWait(driver, 5).until(EC.element_to_be_clickable((By.CSS_SELECTOR, "div.GCMY5A5CCP.GCMY5A5CIK.GCMY5A5CHEC")))
+    wait_tombol = WebDriverWait(driver, 15).until(EC.invisibility_of_element_located((By.CLASS_NAME, 'GCMY5A5CJJ')))
     try:
         tombol_close = tombol_close_parent.find_element(By.CSS_SELECTOR,'div.GCMY5A5CCP.GCMY5A5CIK.GCMY5A5CHEC')
         tombol_close.click()
@@ -330,6 +333,55 @@ def check_status():
     Log_write("--> Workbook updated!")
     workbook.close()
     return
+
+def clean_old_files(path_to):
+    max_age_seconds = 3 * 24 * 60 * 60
+    for file_path in os.listdir(path_to):
+        file_path = os.path.join(path_to,file_path)
+        file_stat = os.stat(file_path)
+        current_time = time()
+        # Calculate the age of the file in seconds
+        file_age_seconds = current_time - file_stat.st_mtime
+        # Compare the age with the maximum allowed age
+        if file_age_seconds > max_age_seconds:
+            # File is older than 3 days, so delete it
+            os.remove(file_path)
+            print(f"{file_path} has been deleted as it's more than 3 days old.")
+
+def checkpoint(row,no,id_pel):
+    checkpoint = './checkpoint/checkpoint.json'
+    data = {}
+    # with open(checkpoint,'r') as f:
+    #     data = json.load(f)
+    data.update({'row_awal':ROW_AWAL,'checkpoint':{'no':no,'row_checkpoint':row,'id':id_pel}})
+    with open(checkpoint,'w') as f:
+        json.dump(data,f)
+        Log_write('Updated checkpoint ..')
+
+def ask_checkpoint():
+    data = {}
+    nomer = 1
+    row_awal = ROW_AWAL
+    checkpoint = './checkpoint/checkpoint.json'
+    if not os.path.exists('./checkpoint'):
+        os.mkdir('./checkpoint')
+    clean_old_files('./checkpoint')
+    if os.path.exists(checkpoint):
+        Log_write('--> Checkpoint found, using value from checkpoint')
+        with open(checkpoint,'r') as f:
+            data:dict = json.load(f)
+        check_idx:dict = data['checkpoint']
+        nomer = check_idx.get('no')
+        row_awal = check_idx.get('row_checkpoint')
+        return nomer,row_awal
+    else:
+        data = {'row_awal':ROW_AWAL,'checkpoint':{'no':0,'row_checkpoint':ROW_AWAL,'id':'first time run'}}
+        with open(checkpoint,'w') as f:
+            json.dump(data)
+        Log_write('Init checkpoint ..')
+        return nomer,row_awal
+            
+
 # ------------------- MAIN PROGRAM ------------------
 # Dapat juga berfungsi sebagai module
 if __name__ == '__main__':
@@ -353,11 +405,10 @@ if __name__ == '__main__':
         exit()
 
     excel_file_path = EXCEL_PATH
-    nomer = 0
     base64_foto_tidak_tersedia = find_this['base_64_foto_tidak_tersedia']
     end_row = ROW_AKHIR+1
-    for row in range(ROW_AWAL,end_row):
-        nomer+=1
+    nomer,row_awal = ask_checkpoint()
+    for row in range(row_awal,end_row):
         workbook = load_workbook(excel_file_path)
         worksheet = workbook.active
         id_pelanggan = worksheet[f'{COL_ID}{row}']
@@ -365,17 +416,15 @@ if __name__ == '__main__':
         foto_cell=worksheet[f'{COL_PHOTO}{row}']
         if foto_cell.value == 'True':
             Log_write(f'No.{nomer} Foto terdeteksi di excel [Skipping] . . . ID : {str_pelanggan}')
+            nomer+=1
             continue
         if foto_cell.value == 'Past':
             Log_write(f'No.{nomer} Foto terdeteksi, foto bulan lalu [Skipping] . . . ID : {str_pelanggan}')
+            nomer+=1
             continue
+        
         search_pelanggan(str_pelanggan)
         banyak_bulan = table_filter()
-        current_time = datetime.now().time()
-        # Extract hour, minute, and second components
-        hour = current_time.hour
-        minute = current_time.minute
-        second = current_time.second
         Log_write(f'No.{nomer} Mencari foto . . .')
         data_foto = lihat_foto(str_pelanggan)
         # Jika tidak menemukan foto pada bulan ini maka memakai bulan sebelumnya
@@ -391,10 +440,17 @@ if __name__ == '__main__':
         else:
             foto_cell.value = save_photo(data_foto,row)
         # try:
-        workbook.save(EXCEL_PATH)
+        current_time = datetime.now().time()
+        # Extract hour, minute, and second components
+        hour = current_time.hour
+        minute = current_time.minute
+        second = current_time.second
         Log_write("--> Workbook updated!")
         Log_write(f'--> {hour}:{minute}:{second}')
+        checkpoint(row,nomer,str_pelanggan)
+        workbook.save(EXCEL_PATH)
         workbook.close()
+        nomer+=1
         # except Exception as e:
         #     Log_write(f"An error occurred while saving the workbook: {e}",'error')
     workbook = load_workbook(excel_file_path)

@@ -4,5 +4,6 @@ TempImages
 practice
 geckodriver.log
 env.zip
+/checkpoint
 /logs
 /venv
