@@ -369,7 +369,11 @@ def ask_checkpoint():
     if os.path.exists(checkpoint):
         Log_write('--> Checkpoint found, using value from checkpoint')
         with open(checkpoint,'r') as f:
-            data:dict = json.load(f)
+            try:
+                data:dict = json.load(f)
+            except:
+                Log_write('No value detected, fallback default')
+                return nomer,row_awal
         check_idx:dict = data['checkpoint']
         nomer = check_idx.get('no')
         row_awal = check_idx.get('row_checkpoint')
