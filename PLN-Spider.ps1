@@ -8,3 +8,8 @@ $file_path = "C:\Users\$current_username\Documents\PLN-Spider"
 cd $file_path
 .\venv\Scripts\activate
 py main.py
+$exitCode = $LASTEXITCODE
+if ($exitCode -gt 0) {
+    echo Error
+    py warning_sound.py
+}
