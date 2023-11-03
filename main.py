@@ -377,7 +377,7 @@ def ask_checkpoint():
     else:
         data = {'row_awal':ROW_AWAL,'checkpoint':{'no':0,'row_checkpoint':ROW_AWAL,'id':'first time run'}}
         with open(checkpoint,'w') as f:
-            json.dump(data)
+            json.dump(data,f)
         Log_write('Init checkpoint ..')
         return nomer,row_awal
             
