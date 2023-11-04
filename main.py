@@ -1,4 +1,4 @@
-version___ = 'PLN Spider v1.7'
+version___ = 'PLN Spider v1.8'
 from dotenv import load_dotenv
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -98,16 +98,20 @@ def logout_akun():
     Log_write("Logged out ... ")
 
 def click_sidebar():
-    # Folder MONITORING DAN LAPORAN
-    element = WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.ID, 'x-widget-8_f-14')))
-    sidebar_tusbung_parent = driver.find_element(By.ID,'x-widget-8_f-14')
-    sidebar_tusbung = sidebar_tusbung_parent.find_element(By.CSS_SELECTOR,'img.GCMY5A5CFOB')
-    sidebar_tusbung.click()
-    # Document Info Pelaksanaan TUL
-    element = WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.ID, 'x-widget-8_m-19')))
-    informasi_TUL_parent = sidebar_tusbung_parent.find_element(By.ID,'x-widget-8_m-19')
-    informasi_TUL = informasi_TUL_parent.find_element(By.CSS_SELECTOR,'img.GCMY5A5CEOB')
-    informasi_TUL.click()
+    try:
+        # Folder MONITORING DAN LAPORAN
+        element = WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.ID, 'x-widget-8_f-14')))
+        sidebar_tusbung_parent = driver.find_element(By.ID,'x-widget-8_f-14')
+        sidebar_tusbung = sidebar_tusbung_parent.find_element(By.CSS_SELECTOR,'img.GCMY5A5CFOB')
+        sidebar_tusbung.click()
+        # Document Info Pelaksanaan TUL
+        element = WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.ID, 'x-widget-8_m-19')))
+        informasi_TUL_parent = sidebar_tusbung_parent.find_element(By.ID,'x-widget-8_m-19')
+        informasi_TUL = informasi_TUL_parent.find_element(By.CSS_SELECTOR,'img.GCMY5A5CEOB')
+        informasi_TUL.click()
+    except:
+        Log_write("Something went wrong [Sidebar not detected]")
+        exit(1)
 
 def search_pelanggan(id_pelanggan):
     input_pelanggan = driver.find_element('id','x-widget-19-input')
@@ -144,8 +148,19 @@ def lihat_foto(id_pelanggan):
     #         Log_write('Popup detected [Attempting to close it]','error')
     #         obscure_popup.click()
     # except:
-    img_button = driver.find_element('xpath','/html/body/div[2]/div/div/div[1]/div[2]/div[1]/div/div[2]/div/div[2]/div[2]/div[1]/div/div/div[1]/div/div[3]/div/div[3]/div/table/tbody/tr[2]/td[2]/div/div/table/tbody/tr/td[1]/img')
-    img_button.click()
+    try:
+        img_button = driver.find_element('xpath','/html/body/div[2]/div/div/div[1]/div[2]/div[1]/div/div[2]/div/div[2]/div[2]/div[1]/div/div/div[1]/div/div[3]/div/div[3]/div/table/tbody/tr[2]/td[2]/div/div/table/tbody/tr/td[1]/img')
+        img_button.click()
+    except:
+        Log_write("Popup detected, trying to close it")
+        try:
+            element = WebDriverWait(driver,40).until(EC.presence_of_element_located(By.XPATH,"/html/body/div[8]/div[2]/div[1]/div/div/div[2]/div/div/div/div/table/tbody/tr[2]/td[2]/div/div/table/tbody/tr/td/div"))
+            popup = driver.find_element('xpath','/html/body/div[8]/div[2]/div[1]/div/div/div[2]/div/div/div/div/table/tbody/tr[2]/td[2]/div/div/table/tbody/tr/td/div')
+            popup.click()
+        except:
+            Log_write("Failed to close it ... ")
+            logout_akun()
+            exit(1)
     # Wait for the image element to be visible
     trying = 1
     final_image_source = ''
@@ -172,19 +187,19 @@ def lihat_foto(id_pelanggan):
                 driver.get(URL)
                 Log_write(f"--> e : {ef}","warning")
                 sleep(sleep_relog)
-                # driver.get(URL)
+                driver.get(URL)
                 element = WebDriverWait(driver, 35).until(EC.presence_of_element_located((By.CSS_SELECTOR, '.GCMY5A5CFN')))
                 input_log_user = driver.find_element('id','x-widget-1-input')
                 input_log_password = driver.find_element('id','x-widget-2-input')
                 button_log = driver.find_element('xpath','/html/body/div[3]/div[2]/div[1]/div/div/div[2]/div/div/div/div/table/tbody/tr[2]/td[2]/div/div/table/tbody/tr/td[1]/img')
                 if input_log_user and input_log_password:
                     input_login(input_log_user,input_log_password,button_log)
-                    click_sidebar()
-                    Log_write('Logged in')
                 else:
                     Log_write('Something went wrong ! [User input not found]','error')
                     driver.quit()
                     exit(1)
+                click_sidebar()
+                Log_write('Logged in')
                 search_pelanggan(id_pelanggan)
                 table_filter()
                 Log_write(f'No.{nomer} Mencari foto [Retrying] . . .')
@@ -412,12 +427,12 @@ if __name__ == '__main__':
     button_login = driver.find_element('xpath','/html/body/div[3]/div[2]/div[1]/div/div/div[2]/div/div/div/div/table/tbody/tr[2]/td[2]/div/div/table/tbody/tr/td[1]/img')
     if input_login_user and input_login_password:
         input_login(input_login_user,input_login_password,button_login)
-        click_sidebar()
-        Log_write('Logged in')
     else:
         Log_write('Something went wrong ! [User input not found]','error')
         driver.quit()
         exit(1)
+    click_sidebar()
+    Log_write('Logged in')
     # logout_akun()
     # sleep(50)
     excel_file_path = EXCEL_PATH
