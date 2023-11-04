@@ -42,7 +42,7 @@ col_photo_num = utils.column_index_from_string(COL_PHOTO)-1
 sleep_for_filter = 3
 sleep_for_search = 2
 sleep_for_timeout_foto = 15
-# sleep_relog = 1200 # 20 Menit
+sleep_relog = 60 # 1 Menit
 sleep_retry_foto = 2
 sleep_tombol_close_foto = 5
 def show_vers():
@@ -171,7 +171,7 @@ def lihat_foto(id_pelanggan):
                 logout_akun()
                 driver.get(URL)
                 Log_write(f"--> e : {ef}","warning")
-                # sleep(sleep_relog)
+                sleep(sleep_relog)
                 # driver.get(URL)
                 element = WebDriverWait(driver, 35).until(EC.presence_of_element_located((By.CSS_SELECTOR, '.GCMY5A5CFN')))
                 input_log_user = driver.find_element('id','x-widget-1-input')
