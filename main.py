@@ -42,7 +42,7 @@ col_photo_num = utils.column_index_from_string(COL_PHOTO)-1
 sleep_for_filter = 3
 sleep_for_search = 2
 sleep_for_timeout_foto = 15
-sleep_relog = 1200 # 20 Menit
+# sleep_relog = 1200 # 20 Menit
 sleep_retry_foto = 2
 sleep_tombol_close_foto = 5
 def show_vers():
@@ -88,6 +88,15 @@ def input_login(user,passw,btn):
     passw.send_keys(PASSWORD)
     btn.click()
 
+def logout_akun():
+    element = WebDriverWait(driver,5).until(EC.presence_of_element_located((By.XPATH,"/html/body/div[2]/div/div/div[3]/div[2]/div[1]/div/div/div[5]/div/table/tbody/tr[2]/td[2]/div/div/table/tbody/tr/td[1]/div")))
+    div_tombol = driver.find_element(By.XPATH,"/html/body/div[2]/div/div/div[3]/div[2]/div[1]/div/div/div[5]/div/table/tbody/tr[2]/td[2]/div/div/table/tbody/tr/td[1]/div")
+    div_tombol.click()
+    element = WebDriverWait(driver,5).until(EC.presence_of_element_located((By.XPATH,"/html/body/div[5]/div/div[2]/div/a")))
+    tombol_logout = driver.find_element(By.XPATH,"/html/body/div[5]/div/div[2]/div/a")
+    tombol_logout.click()
+    Log_write("Logged out ... ")
+
 def click_sidebar():
     # Folder MONITORING DAN LAPORAN
     element = WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.ID, 'x-widget-8_f-14')))
@@ -127,6 +136,7 @@ def table_filter(idx_bulan=1):
     actions.move_to_element(bulan_pilihan).click().perform()
     return len(bulan_)
 
+
 def lihat_foto(id_pelanggan):
     # try:
     #     obscure_popup = WebDriverWait(driver,40).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div.GCMY5A5CGEC')))
@@ -143,8 +153,9 @@ def lihat_foto(id_pelanggan):
         Log_write(f'--> ID : {id_pelanggan}, Percobaan ke : {trying}')
         if trying > BANYAK_PERCOBAAN:
             # if trying >= BANYAK_PERCOBAAN+1:
-            Log_write('--> Bad connection [Exit]','error')
-            exit()
+            Log_write('--> Bad connection [Logout & Exit]','error')
+            logout_akun()
+            exit(1)
             # Log_write('--> Bad connection [Trying one last time again]','warning')
         try:
             element = WebDriverWait(driver,40).until(EC.presence_of_element_located((By.XPATH,'/html/body/div[5]/div[2]/div[1]/div/div/div[1]/div/div[2]/div[1]/div/div/div[1]/div/div[2]/div[1]/div[2]/div[1]')))
@@ -156,11 +167,12 @@ def lihat_foto(id_pelanggan):
             try:
                 element = WebDriverWait(driver,40).until(EC.presence_of_element_located((By.XPATH,'/html/body/div[5]/div[2]/div[1]/div/div/div[1]/div/div[2]/div[1]/div/div/div[1]/div/div[2]/div[1]/div[2]/div[1]')))
             except Exception as ef:
-                driver.get(URL)
                 Log_write(f"--> Relogin [Refreshing]","warning")
-                Log_write(f"--> e : {ef}","warning")
-                sleep(sleep_relog)
+                logout_akun()
                 driver.get(URL)
+                Log_write(f"--> e : {ef}","warning")
+                # sleep(sleep_relog)
+                # driver.get(URL)
                 element = WebDriverWait(driver, 35).until(EC.presence_of_element_located((By.CSS_SELECTOR, '.GCMY5A5CFN')))
                 input_log_user = driver.find_element('id','x-widget-1-input')
                 input_log_password = driver.find_element('id','x-widget-2-input')
@@ -172,7 +184,7 @@ def lihat_foto(id_pelanggan):
                 else:
                     Log_write('Something went wrong ! [User input not found]','error')
                     driver.quit()
-                    exit()
+                    exit(1)
                 search_pelanggan(id_pelanggan)
                 table_filter()
                 Log_write(f'No.{nomer} Mencari foto [Retrying] . . .')
@@ -311,7 +323,7 @@ def check_folders():
         Log_write(f'Folder created : {folder_temp_img}','warning')
         return
     Log_write('Something went wrong ... [Folder related]','error')
-    exit()
+    exit(1)
 
 def check_status():
     workbook = load_workbook(EXCEL_PATH)
@@ -385,7 +397,6 @@ def ask_checkpoint():
         Log_write('Init checkpoint ..')
         return nomer,row_awal
             
-
 # ------------------- MAIN PROGRAM ------------------
 # Dapat juga berfungsi sebagai module
 if __name__ == '__main__':
@@ -406,8 +417,9 @@ if __name__ == '__main__':
     else:
         Log_write('Something went wrong ! [User input not found]','error')
         driver.quit()
-        exit()
-
+        exit(1)
+    # logout_akun()
+    # sleep(50)
     excel_file_path = EXCEL_PATH
     base64_foto_tidak_tersedia = find_this['base_64_foto_tidak_tersedia']
     end_row = ROW_AKHIR+1
@@ -464,6 +476,7 @@ if __name__ == '__main__':
     workbook.save(EXCEL_PATH)
     workbook.close()
     Log_write("--> Workbook updated! removed WORKING flag")
+    logout_akun()
     driver.quit()
     Log_write('Webdriver flush\nExiting . . .')
     Log_write('\x1b[1;92mAll done ...')
