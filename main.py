@@ -1,4 +1,4 @@
-version___ = 'PLN Spider v1.8'
+version___ = 'PLN Spider v1.9'
 from dotenv import load_dotenv
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -96,6 +96,12 @@ def logout_akun():
     tombol_logout = driver.find_element(By.XPATH,"/html/body/div[5]/div/div[2]/div/a")
     tombol_logout.click()
     Log_write("Logged out ... ")
+
+def delete_temp():
+    folder = "./TempImages"
+    for file_img in os.listdir(folder):
+        print(f"deleting -> {file_img}")
+        os.remove(f"{folder}/{file_img}")
 
 def click_sidebar():
     try:
@@ -493,6 +499,7 @@ if __name__ == '__main__':
     Log_write("--> Workbook updated! removed WORKING flag")
     logout_akun()
     driver.quit()
+    delete_temp()
     Log_write('Webdriver flush\nExiting . . .')
     Log_write('\x1b[1;92mAll done ...')
     show_vers()
