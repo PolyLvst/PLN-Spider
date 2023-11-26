@@ -1,4 +1,4 @@
-version___ = 'PLN Spider v2.0'
+version___ = 'PLN Spider v2.1'
 from dotenv import load_dotenv
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -55,12 +55,24 @@ def show_vers():
     created_by = find_this['creator']
     print(f'\x1b[1;96m>> Created by : {created_by}\n>> Github : https://github.com/PolyLvst\n\x1b[1;93m@ {version___}\x1b[0m\n')
 # ------------- Selenium web driver ------------ #
-def start_web_dv():
+def start_web_dv(profile="default"):
     options = Options()
     user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:120.0) Gecko/20100101 Firefox/120.0"
     options.set_preference("general.useragent.override", user_agent)
     options.set_preference("network.trr.mode", 2)
     options.set_preference("network.trr.uri", "https://mozilla.cloudflare-dns.com/dns-query")
+    profile_path = os.path.join(os.getenv('APPDATA'), 'Mozilla', 'Firefox', 'Profiles')
+    # List all directories in the Profiles folder
+    profiles = [d for d in os.listdir(profile_path) if os.path.isdir(os.path.join(profile_path, d))]
+    path_prof = None 
+    for path_p in profiles:
+        if profile in path_p:
+            path_prof = os.path.join(profile_path, path_p)
+            break
+    if path_prof:
+        Log_write(f"-- Using {profile} profile")
+        options.add_argument("-profile")
+        options.add_argument(path_prof)
     driver = webdriver.Firefox(options=options)
     return driver
 
@@ -162,6 +174,7 @@ def table_filter(idx_bulan=1):
     table_element = driver.find_element(By.CSS_SELECTOR,'table.GCMY5A5CMIC')
     bulan_ = table_element.find_elements(By.TAG_NAME,'tr')
     bulan_pilihan = bulan_[idx_bulan]
+    driver.execute_script("arguments[0].scrollIntoView();", bulan_pilihan)
     actions.move_to_element(bulan_pilihan).click().perform()
     return len(bulan_)
 
