@@ -1,4 +1,5 @@
 version___ = 'PLN Spider v2.2'
+import threading
 from dotenv import load_dotenv
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -20,7 +21,7 @@ import logging
 load_dotenv()
 find_this = os.environ
 URL = find_this['URL']
-USER = find_this['USER']
+USER = find_this['USER_LOGIN']
 PASSWORD = find_this['PASSWORD']
 EXCEL_PATH = find_this['EXCEL_PATH']
 ROW_AWAL = int(find_this['ROW_AWAL'])
@@ -560,9 +561,17 @@ def update_cache_ids(no_id,status_given):
         Log_write("Something wrong happens [cached_ids not found]","error")
         exit(1)
 
+def listen_for_input(stop_event):
+    while True:
+        user_input = input("Enter 'q' to quit: \n")
+        if user_input.lower() == 'q':
+            print("Quitting the program.")
+            stop_event.set()  # Set the event to signal the loop job to stop
+            break
+
 # ------------------- MAIN PROGRAM ------------------
 # Dapat juga berfungsi sebagai module
-def main():
+def main(stop_event):
     check_folders()
     check_status()
     driver.get(URL)
@@ -589,6 +598,8 @@ def main():
     # Gets the latest section of ids, from checkpoint to the end
     cache_ids = dict(items_list)
     for row in cache_ids:
+        if stop_event.is_set():
+            break
         foto_status = cache_ids[row]["status_value"]
         str_pelanggan = cache_ids[row]["str_pelanggan"]
         if foto_status == 'True':
@@ -647,7 +658,21 @@ if __name__ == '__main__':
     Log_write(f"{show_vers()}\n")
     while True:
         try:
-            main()
+            # Create a threading.Event object
+            stop_event = threading.Event()
+            
+            # Create threads for input listener and main job
+            input_thread = threading.Thread(target=listen_for_input, args=(stop_event,))
+            main_thread = threading.Thread(target=main, args=(stop_event,))
+            
+            # Start the threads
+            input_thread.start()
+            main_thread.start()
+            
+            # Wait for the threads to finish
+            input_thread.join()
+            main_thread.join()
+
         except Exception:
             Log_write(f"\x1b[1;35m--> Relogin [Refreshing]\x1b[0m","warning")
             logout_akun()

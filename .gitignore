@@ -4,6 +4,7 @@ TempImages
 practice
 geckodriver.log
 env.zip
-/DataSnapshots
+/DataSnapshots*
 /logs
 /venv
+__pycache__
