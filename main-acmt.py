@@ -1,6 +1,7 @@
 version___ = 'PLN Spider ACMT v1.0'
 from dotenv import load_dotenv
 from selenium.webdriver.common.by import By
+from selenium.webdriver.common.alert import Alert
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from datetime import datetime
@@ -60,17 +61,18 @@ class ACMT:
     
     def __repr__(self) -> str:
         return f'\x1b[1;96m>> Created by : {self.created_by}\n>> Github : https://github.com/PolyLvst\n\x1b[1;93m@ {version___}\x1b[0m'
+    
+    def input_captcha(self):
+        input_captcha = self.driver.find_element('xpath',"//input[contains(@class,'gwt-TextBox x-component')]")
+        input_captcha.click()
+        captcha = input("Input the captcha shown : ")
+        input_captcha.send_keys(captcha)
 
-    def input_login(self,user,passw,btn):
+    def input_login(self,user,passw):
         user.click()
         user.send_keys(USER)
         passw.click()
         passw.send_keys(PASSWORD)
-        input_captcha = self.driver.find_element('id',"x-auto-3-input")
-        input_captcha.click()
-        captcha = input("Input the captcha shown : ")
-        input_captcha.send_keys(captcha)
-        btn.click()
 
     def logout_akun(self):
         current_time = time()
@@ -100,15 +102,18 @@ class ACMT:
     def click_sidebar(self):
         try:
             # Overlay loading
-            overlay = self.driver.find_element(By.CLASS_NAME, "GCNLWM1NBC")
+            self.driver.find_element(By.CLASS_NAME, "GCNLWM1NBC")
             WebDriverWait(self.driver, 40).until(EC.invisibility_of_element_located((By.CLASS_NAME, "GCNLWM1NBC")))
         except Exception:
             self.Log_write("Great no overlay .. ")
         try:
-            # Folder KCT info Baca KCT
-            element = WebDriverWait(self.driver, 40).until(EC.presence_of_element_located((By.XPATH, "//span[@class='GCNLWM1OLB'][contains(.,'Info Baca KCT')]")))
-            informasi_TUL = self.driver.find_element(By.XPATH,"//span[@class='GCNLWM1OLB'][contains(.,'Info Baca KCT')]")
-            informasi_TUL.click()
+            # Folder Informasi
+            WebDriverWait(self.driver, 40).until(EC.presence_of_element_located((By.XPATH, "(//img[contains(@class,' x-tree3-node-joint')])[7]")))
+            informasi = self.driver.find_element(By.XPATH,"(//img[contains(@class,' x-tree3-node-joint')])[7]")
+            informasi.click()
+            WebDriverWait(self.driver, 40).until(EC.presence_of_element_located((By.XPATH, "//span[contains(.,'History Pelanggan Prabayar')]")))
+            prabayar = self.driver.find_element(By.XPATH,"//span[contains(.,'History Pelanggan Prabayar')]")
+            prabayar.click()
         except Exception:
             self.Log_write("Something went wrong [Sidebar not detected]")
             # exit(1)
@@ -116,7 +121,7 @@ class ACMT:
 
     def search_pelanggan(self,id_pelanggan):
         try:
-            input_pelanggan = self.driver.find_element('id',"x-auto-38-input")
+            input_pelanggan = self.driver.find_element('xpath',"//input[contains(@name,'idpel')]")
             input_pelanggan.clear()
             input_pelanggan.send_keys(id_pelanggan)
         except Exception:
@@ -124,12 +129,11 @@ class ACMT:
             raise ExceptionTryRefreshing
         try:
             sleep(sleep_retry_foto)
-            # tombol_cari = WebDriverWait(driver, 30).until(EC.presence_of_element_located((By.XPATH,'/html/body/div[2]/div/div[1]/div[2]/div/div[2]/div[2]/div[1]/div/div[2]/div[1]/form/div/div[2]/div[1]/div/div/div[1]/div/div/div/div[2]/div[1]/div/div/div[1]/div/div[1]/fieldset/div/div/div/div[2]/div/table/tbody/tr[2]/td[2]/div/div/table/tbody/tr/td[1]')))
-            tombol_cari = self.driver.find_element('xpath',"//div[@class='GCNLWM1ON'][contains(.,'Cari')]")
-            tombol_cari.click()
+            tombol_load = self.driver.find_element('xpath',"(//img[@class=' x-btn-image'])[2]")
+            tombol_load.click()
         except Exception:
             try:
-                element = WebDriverWait(self.driver, 60).until(EC.presence_of_element_located((By.XPATH, "//div[@class='GCNLWM1ON'][contains(.,'OK')]")))
+                WebDriverWait(self.driver, 60).until(EC.presence_of_element_located((By.XPATH, "//div[@class='GCNLWM1ON'][contains(.,'OK')]")))
                 tombol_error_google = self.driver.find_element('xpath',"//div[@class='GCNLWM1ON'][contains(.,'OK')]")
                 tombol_error_google.click()
                 self.Log_write("Google gwt error closed","warning")
@@ -142,11 +146,10 @@ class ACMT:
 
     def lihat_foto(self,id_pelanggan,nomer):
         try:
-            actions = ActionChains(self.driver)
-            foto_element = WebDriverWait(self.driver, 30).until(EC.presence_of_element_located((By.XPATH,"//img[contains(@class,'gwt-Image')]")))
-            foto = self.driver.find_element(By.XPATH,"//img[contains(@class,'gwt-Image')]")
-            self.driver.execute_script("arguments[0].scrollIntoView();", foto)
-            actions.move_to_element(foto).perform()
+            WebDriverWait(self.driver, 30).until(EC.presence_of_element_located((By.XPATH,"//div[contains(@class,'x-grid3-cell-inner x-grid3-col-blth')]")))
+            table_pelanggan_prabayar = self.driver.find_element(By.XPATH,"//div[contains(@class,'x-grid3-cell-inner x-grid3-col-blth')]")
+            table_pelanggan_prabayar.click()
+            table_pelanggan_prabayar.click()
         except Exception:
             self.Log_write(f'--> ID : {id_pelanggan}')
             self.Log_write("--> Foto tidak tersedia","warning")
@@ -161,17 +164,26 @@ class ACMT:
                 self.Log_write('--> Bad connection [Logout & Exit]','error')
                 raise ExceptionTryRefreshing
 
-            # Foto bawah
-            img_element_1 = self.driver.find_element('xpath',"//img[contains(@class,'gwt-Image')]")
-            image_source_1 = img_element_1.get_attribute("src")
+            # Foto Foto
+            img_elements = self.driver.find_elements('xpath',"//img[contains(@alt,'example image')]")
+            image_source_1 = img_elements[0].get_attribute("src")
+            image_source_2 = img_elements[1].get_attribute("src")
+            image_source_3 = img_elements[2].get_attribute("src")
             try:
                 response = requests.get(image_source_1,timeout=3)
                 if response.ok:
                     final_image_source = response
                     break
-                else:
-                    final_image_source = False
+                response = requests.get(image_source_2,timeout=3)
+                if response.ok:
+                    final_image_source = response
                     break
+                response = requests.get(image_source_3,timeout=3)
+                if response.ok:
+                    final_image_source = response
+                    break
+                final_image_source = False
+                break
             except Exception:
                 trying+=1
                 self.search_pelanggan(id_pelanggan)
@@ -312,7 +324,7 @@ class ACMT:
             print(f"deleting -> {file_img}")
             os.remove(f"{folder}/{file_img}")
     
-    def clean_old_files(path_to):
+    def clean_old_files(self,path_to):
         max_age_seconds = 3 * 24 * 60 * 60
         old_files = []
         for file_path in os.listdir(path_to):
@@ -350,7 +362,7 @@ class ACMT:
 class SpiderACMT:
     def __init__(self):
         # use the name of your firefox profile
-        self.driver = myutils.WebScraperUtils.start_web_dv(profile="default")
+        self.driver = myutils.WebScraperUtils.start_web_dv(profile="WebScraping")
         self.acmt_crawler = ACMT(driver=self.driver)
 
     def run(self):
@@ -388,24 +400,41 @@ class SpiderACMT:
         driver.get(URL)
         acmt_crawler.Log_write(str(acmt_crawler))
         # Overlay
-        overlay = driver.find_element(By.CLASS_NAME, "blockOverlay")
-        WebDriverWait(driver, 40).until(EC.invisibility_of_element_located((By.CLASS_NAME, "blockOverlay")))
-
-        element = WebDriverWait(driver, 35).until(EC.presence_of_element_located((By.ID, "x-auto-1-input")))
-        input_login_user = driver.find_element('id',"x-auto-1-input")
-        input_login_password = driver.find_element('id',"x-auto-2-input")
-        button_login = driver.find_element('xpath',"//div[@class='GCNLWM1ON'][contains(.,'Login')]")
+        try:
+            overlay = driver.find_element(By.CLASS_NAME, "blockOverlay")
+            WebDriverWait(driver, 40).until(EC.invisibility_of_element_located((By.CLASS_NAME, "blockOverlay")))
+        except Exception:
+            # Great no overlay
+            pass
+        element = WebDriverWait(driver, 35).until(EC.presence_of_element_located((By.XPATH, "//input[@name='user']")))
+        input_login_user = driver.find_element('xpath',"//input[@name='user']")
+        input_login_password = driver.find_element('xpath',"//input[@name='password']")
+        button_login = driver.find_element('xpath',"//button[contains(.,'Login')]")
+        button_recaptcha = driver.find_element('xpath',"//button[@class='x-btn-text '][contains(.,'ReCaptcha')]")
         if input_login_user and input_login_password:
-            # sleep(5)
-            acmt_crawler.input_login(input_login_user,input_login_password,button_login)
+            while True:
+                input_login_user.clear()
+                input_login_password.clear()
+                acmt_crawler.input_login(input_login_user,input_login_password)
+                acmt_crawler.input_captcha()
+                button_login.click()
+                try:
+                    WebDriverWait(driver, 3).until(EC.alert_is_present())
+                    print(">> Retry Captcha")
+                    alert = driver.switch_to.alert
+                    acmt_crawler.Log_write(alert.text)
+                    alert.accept()
+                    print(">> Alert accepted")
+                    button_recaptcha.click()
+                except Exception:
+                    break
         else:
             acmt_crawler.Log_write('Something went wrong ! [User input not found]','error')
             driver.quit()
-            exit(1)
         acmt_crawler.click_sidebar()
         acmt_crawler.Log_write('Logged in')
         nomer,row_checkpoint = acmt_crawler.ask_checkpoint()
-        print(f">> Starting with id : {row_checkpoint}")
+        print(f">> Starting with row : {row_checkpoint}")
         cache_ids = acmt_crawler.get_cached_ids()
         if nomer == 1:
             splice_range = 0
@@ -461,8 +490,8 @@ class SpiderACMT:
 if __name__ == '__main__':
     main = SpiderACMT()
     # main.run()
-    exit(1)
+    # exit(1)
     # Uncomment to use individual functionality you need
     # main.save_photo()
     # main.delete_temp_photo()
-    # main.test_run()
+    main.test_run()
