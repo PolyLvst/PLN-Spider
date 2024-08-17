@@ -1,4 +1,5 @@
-version___ = 'PLN Spider ACMT v1.0'
+version___ = 'PLN Spider ACMT v1.5'
+from uuid import uuid4
 from dotenv import load_dotenv
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.alert import Alert
@@ -16,7 +17,7 @@ from time import sleep
 import requests
 from utils import myutils
 
-load_dotenv(verbose=True)
+load_dotenv(override=True,verbose=True)
 find_this = os.environ
 URL = find_this['WEB_URL']
 USER = find_this['USER_ACMT']
@@ -65,8 +66,12 @@ class ACMT:
     def input_captcha(self):
         input_captcha = self.driver.find_element('xpath',"//input[contains(@class,'gwt-TextBox x-component')]")
         input_captcha.click()
-        captcha = input("Input the captcha shown : ")
+        input_captcha.clear()
+        captcha = input("Input the captcha shown [type ! to reset captcha] : ")
+        if captcha == "!":
+            return False
         input_captcha.send_keys(captcha)
+        return True
 
     def input_login(self,user,passw):
         user.click()
@@ -91,9 +96,12 @@ class ACMT:
             print(f"\r[0] (UWU) Logging out ",end="")
             print("\n")
         try:
-            element = WebDriverWait(self.driver,45).until(EC.presence_of_element_located((By.XPATH,"//div[@class='GCNLWM1ON'][contains(.,'Logout')]")))
-            tombol_logout = self.driver.find_element(By.XPATH,"//div[@class='GCNLWM1ON'][contains(.,'Logout')]")
+            WebDriverWait(self.driver,45).until(EC.presence_of_element_located((By.XPATH,"//button[@class='x-btn-text '][contains(.,'Logout')]")))
+            tombol_logout = self.driver.find_element(By.XPATH,"//button[@class='x-btn-text '][contains(.,'Logout')]")
             tombol_logout.click()
+            WebDriverWait(self.driver,45).until(EC.presence_of_element_located((By.XPATH,"//button[@class='x-btn-text '][contains(.,'Yes')]")))
+            tombol_yes = self.driver.find_element(By.XPATH,"//button[@class='x-btn-text '][contains(.,'Yes')]")
+            tombol_yes.click()
             self.Log_write("Logged out ... ")
         except Exception:
             self.Log_write("Logout button not found","error")
@@ -128,28 +136,18 @@ class ACMT:
             self.Log_write("Input pelanggan not found","error")
             raise ExceptionTryRefreshing
         try:
-            sleep(sleep_retry_foto)
+            WebDriverWait(self.driver, 5).until(EC.presence_of_element_located((By.XPATH,"(//img[@class=' x-btn-image'])[2]")))
             tombol_load = self.driver.find_element('xpath',"(//img[@class=' x-btn-image'])[2]")
             tombol_load.click()
         except Exception:
-            try:
-                WebDriverWait(self.driver, 60).until(EC.presence_of_element_located((By.XPATH, "//div[@class='GCNLWM1ON'][contains(.,'OK')]")))
-                tombol_error_google = self.driver.find_element('xpath',"//div[@class='GCNLWM1ON'][contains(.,'OK')]")
-                tombol_error_google.click()
-                self.Log_write("Google gwt error closed","warning")
-            except Exception:
-                self.Log_write("Something wrong happens [search_pelanggan]","error")
-            # //div[@class='GCNLWM1FQ'][contains(.,'Problem detected : com.google.gwt.user.client.rpc.StatusCodeException: 0')]
-            # //div[@class='GCNLWM1ON'][contains(.,'OK')]
-            # exit(1)
             raise ExceptionTryRefreshing
 
-    def lihat_foto(self,id_pelanggan,nomer):
+    def lihat_foto(self,id_pelanggan,request_session):
         try:
-            WebDriverWait(self.driver, 30).until(EC.presence_of_element_located((By.XPATH,"//div[contains(@class,'x-grid3-cell-inner x-grid3-col-blth')]")))
-            table_pelanggan_prabayar = self.driver.find_element(By.XPATH,"//div[contains(@class,'x-grid3-cell-inner x-grid3-col-blth')]")
-            table_pelanggan_prabayar.click()
-            table_pelanggan_prabayar.click()
+            WebDriverWait(self.driver, 30).until(EC.visibility_of_element_located((By.XPATH,"//div[contains(@class,'x-grid3-col-tegangan')]")))
+            element = self.driver.find_element(By.CSS_SELECTOR, ".x-grid3-col-tegangan")
+            actions = ActionChains(self.driver)
+            actions.double_click(element).perform()
         except Exception:
             self.Log_write(f'--> ID : {id_pelanggan}')
             self.Log_write("--> Foto tidak tersedia","warning")
@@ -163,30 +161,39 @@ class ACMT:
                 # if trying >= BANYAK_PERCOBAAN+1:
                 self.Log_write('--> Bad connection [Logout & Exit]','error')
                 raise ExceptionTryRefreshing
-
-            # Foto Foto
-            img_elements = self.driver.find_elements('xpath',"//img[contains(@alt,'example image')]")
-            image_source_1 = img_elements[0].get_attribute("src")
-            image_source_2 = img_elements[1].get_attribute("src")
-            image_source_3 = img_elements[2].get_attribute("src")
             try:
-                response = requests.get(image_source_1,timeout=3)
-                if response.ok:
+                # Frame foto iframe
+                img_frames = WebDriverWait(self.driver, 15).until(EC.visibility_of_any_elements_located((By.CLASS_NAME,"gwt-Frame")))
+                image_source = ""
+                for fr_num,frame in enumerate(img_frames):
+                    self.Log_write(f">> Switching to frame : {fr_num}")
+                    self.driver.switch_to.frame(frame)
+                    WebDriverWait(self.driver, 5).until(EC.presence_of_element_located((By.XPATH,"//img[contains(@id,'image')]")))
+                    img_element = self.driver.find_element('xpath',"//img[contains(@id,'image')]")
+                    image_width = img_element.get_attribute('width')
+                    image_height = img_element.get_attribute('height')
+                    if image_width > '0' or image_height > '0':
+                        image_source = img_element.get_attribute("src")
+                        self.driver.switch_to.default_content()
+                        break
+                    self.driver.switch_to.default_content()
+                if image_source:
+                    response = request_session.get(image_source,timeout=3,)
+                    self.Log_write(f">> Response image [OK] : {response.status_code} | {image_source}")
                     final_image_source = response
                     break
-                response = requests.get(image_source_2,timeout=3)
-                if response.ok:
-                    final_image_source = response
-                    break
-                response = requests.get(image_source_3,timeout=3)
-                if response.ok:
-                    final_image_source = response
-                    break
+                self.Log_write(f">> No image")
                 final_image_source = False
                 break
-            except Exception:
+            except Exception as e:
                 trying+=1
+                self.Log_write(f"Something went wrong [Trying again] {e}","error")
+                self.driver.refresh()
+                self.click_sidebar()
                 self.search_pelanggan(id_pelanggan)
+        WebDriverWait(self.driver, 5).until(EC.presence_of_element_located((By.XPATH,"//div[contains(@class, 'x-tool-close')]")))
+        close_button = self.driver.find_element('xpath',"//div[contains(@class, 'x-tool-close')]")
+        close_button.click()
         return final_image_source
 
     def checkpoint(self,row,no,id_pel):
@@ -370,11 +377,12 @@ class SpiderACMT:
             try:
                 self.__main()
                 self.__cleanup()
-                exit()
+                break
             except Exception as e:
                 self.acmt_crawler.Log_write(f"Got error : {e}")
-                self.acmt_crawler.Log_write(f"\x1b[1;35m--> Relogin [Refreshing]\x1b[0m","warning")
-                self.acmt_crawler.logout_akun()
+                self.acmt_crawler.Log_write(f"\x1b[1;35m--> [Refreshing]\x1b[0m","warning")
+                self.driver.save_screenshot(f"./logs/Error_{uuid4()}.png")
+                # self.acmt_crawler.logout_akun()
                 self.acmt_crawler.last_logout_time = time()
                 continue
 
@@ -387,7 +395,12 @@ class SpiderACMT:
     def test_run(self):
         print(f">> After testing done, you need to delete images in the {EXCEL_PATH} after test run")
         print(f">> Or the file might have duplicate image on top of other.")
-        self.__main(stop_at_offset = 3)
+        self.__main(stop_at_offset = 1)
+        # try:
+        #     self.__main(stop_at_offset = 3)
+        # except Exception as e:
+        #     self.acmt_crawler.Log_write(e,stat='error')
+        #     self.acmt_crawler.logout_akun()
 
     def delete_snapshots(self):
         folder_snapshots = self.acmt_crawler.snapshots_folder
@@ -416,7 +429,7 @@ class SpiderACMT:
                 input_login_user.clear()
                 input_login_password.clear()
                 acmt_crawler.input_login(input_login_user,input_login_password)
-                acmt_crawler.input_captcha()
+                ret_reset = acmt_crawler.input_captcha()
                 button_login.click()
                 try:
                     WebDriverWait(driver, 3).until(EC.alert_is_present())
@@ -425,12 +438,17 @@ class SpiderACMT:
                     acmt_crawler.Log_write(alert.text)
                     alert.accept()
                     print(">> Alert accepted")
-                    button_recaptcha.click()
+                    if ret_reset == False:
+                        button_recaptcha.click()
                 except Exception:
                     break
         else:
             acmt_crawler.Log_write('Something went wrong ! [User input not found]','error')
             driver.quit()
+        session = requests.Session()
+        selenium_cookies = driver.get_cookies()
+        requests_cookies = {cookie['name']: cookie['value'] for cookie in selenium_cookies}
+        session.cookies.update(requests_cookies)
         acmt_crawler.click_sidebar()
         acmt_crawler.Log_write('Logged in')
         nomer,row_checkpoint = acmt_crawler.ask_checkpoint()
@@ -457,7 +475,7 @@ class SpiderACMT:
                 continue
             acmt_crawler.Log_write(f'No.{nomer} Mencari foto . . .')
             acmt_crawler.search_pelanggan(str_pelanggan)
-            data_foto = acmt_crawler.lihat_foto(str_pelanggan,nomer)
+            data_foto = acmt_crawler.lihat_foto(str_pelanggan,request_session = session)
             if data_foto == False:
                 acmt_crawler.Log_write("--> Cache img updated [No image] ..")
                 acmt_crawler.download_photo(data_foto,row,"False")
@@ -476,7 +494,7 @@ class SpiderACMT:
             acmt_crawler.Log_write(f"\x1b[1;96m>> Total left : {ROW_AKHIR-ROW_AWAL-nomer}\x1b[0m")
             nomer+=1
         acmt_crawler.save_photo()
-        acmt_crawler.logout_akun()
+        # acmt_crawler.logout_akun()
         acmt_crawler.Log_write('Webdriver flush\nExiting . . .')
         driver.quit()
         acmt_crawler.Log_write('\x1b[1;92mAll done ...')
@@ -489,9 +507,9 @@ class SpiderACMT:
 
 if __name__ == '__main__':
     main = SpiderACMT()
-    # main.run()
+    main.run()
     # exit(1)
     # Uncomment to use individual functionality you need
     # main.save_photo()
     # main.delete_temp_photo()
-    main.test_run()
+    # main.test_run()
