@@ -40,9 +40,6 @@ now__ = datetime.now()
 now_time = now__.strftime('%d-%m-%Y_%H-%M-%S')
 log_file_path = './logs/PLN-Spider-ACMT'+now_time+'.log'
 
-class ExceptionTryRefreshing(Exception):
-    pass
-
 class ACMT:
     def __init__(self,driver):
         self.created_by = find_this['creator']
@@ -125,7 +122,7 @@ class ACMT:
         except Exception:
             self.Log_write("Something went wrong [Sidebar not detected]")
             # exit(1)
-            raise ExceptionTryRefreshing
+            raise
 
     def search_pelanggan(self,id_pelanggan):
         try:
@@ -134,24 +131,36 @@ class ACMT:
             input_pelanggan.send_keys(id_pelanggan)
         except Exception:
             self.Log_write("Input pelanggan not found","error")
-            raise ExceptionTryRefreshing
+            raise
         try:
             WebDriverWait(self.driver, 5).until(EC.presence_of_element_located((By.XPATH,"(//img[@class=' x-btn-image'])[2]")))
             tombol_load = self.driver.find_element('xpath',"(//img[@class=' x-btn-image'])[2]")
             tombol_load.click()
         except Exception:
-            raise ExceptionTryRefreshing
+            raise
 
-    def lihat_foto(self,id_pelanggan,request_session):
+    def table_filter(self):
         try:
-            WebDriverWait(self.driver, 30).until(EC.visibility_of_element_located((By.XPATH,"//div[contains(@class,'x-grid3-col-tegangan')]")))
-            element = self.driver.find_element(By.CSS_SELECTOR, ".x-grid3-col-tegangan")
+            WebDriverWait(self.driver, 30).until(EC.presence_of_element_located((By.XPATH, "//div[@role='columnheader'][contains(.,'BLTH')]")))
+            filter_blth = self.driver.find_element('xpath',"//div[@role='columnheader'][contains(.,'BLTH')]")
+            attribut_filter = filter_blth.get_attribute("class")
+            if "sort-desc" not in attribut_filter:
+                filter_blth.click()
+                filter_blth.click()
+                self.Log_write(">> Filtered BLTH desc")
+        except Exception as e:
+            self.Log_write(f">> Error in filter blth {e}","error")
+            raise
+        try:
+            WebDriverWait(self.driver, 30).until(EC.visibility_of_element_located((By.XPATH,"//div[contains(@class,'x-grid3-cell-inner x-grid3-col-blth')]")))
+            element = self.driver.find_element(By.XPATH, "//div[contains(@class,'x-grid3-cell-inner x-grid3-col-blth')]")
             actions = ActionChains(self.driver)
             actions.double_click(element).perform()
         except Exception:
-            self.Log_write(f'--> ID : {id_pelanggan}')
-            self.Log_write("--> Foto tidak tersedia","warning")
-            return False
+            self.Log_write("--> Table not reachable","error")
+            raise
+
+    def lihat_foto(self,id_pelanggan,request_session):
         trying = 1
         final_image_source = ''
         while True:
@@ -159,8 +168,8 @@ class ACMT:
             # will exit after +1 trying
             if trying > BANYAK_PERCOBAAN:
                 # if trying >= BANYAK_PERCOBAAN+1:
-                self.Log_write('--> Bad connection [Logout & Exit]','error')
-                raise ExceptionTryRefreshing
+                self.Log_write('--> Bad connection [Refreshing]','error')
+                raise
             try:
                 # Frame foto iframe
                 img_frames = WebDriverWait(self.driver, 15).until(EC.visibility_of_any_elements_located((By.CLASS_NAME,"gwt-Frame")))
@@ -188,9 +197,11 @@ class ACMT:
             except Exception as e:
                 trying+=1
                 self.Log_write(f"Something went wrong [Trying again] {e}","error")
+                self.driver.save_screenshot(f"./logs/Error_{uuid4()}.png")
                 self.driver.refresh()
                 self.click_sidebar()
                 self.search_pelanggan(id_pelanggan)
+                self.table_filter()
         WebDriverWait(self.driver, 5).until(EC.presence_of_element_located((By.XPATH,"//div[contains(@class, 'x-tool-close')]")))
         close_button = self.driver.find_element('xpath',"//div[contains(@class, 'x-tool-close')]")
         close_button.click()
@@ -373,7 +384,9 @@ class SpiderACMT:
         self.acmt_crawler = ACMT(driver=self.driver)
 
     def run(self):
-        while True:
+        self.driver.get(URL)
+        trying = 0
+        while trying < BANYAK_PERCOBAAN:
             try:
                 self.__main()
                 self.__cleanup()
@@ -382,9 +395,18 @@ class SpiderACMT:
                 self.acmt_crawler.Log_write(f"Got error : {e}")
                 self.acmt_crawler.Log_write(f"\x1b[1;35m--> [Refreshing]\x1b[0m","warning")
                 self.driver.save_screenshot(f"./logs/Error_{uuid4()}.png")
-                # self.acmt_crawler.logout_akun()
+                self.driver.refresh()
+                self.driver.switch_to.default_content()
+                # try:
+                #     self.acmt_crawler.logout_akun()
+                # except:
+                #     self.driver.save_screenshot(f"./logs/Error_{uuid4()}.png")
+                #     self.acmt_crawler.Log_write("Something went wrong in logging out")
                 self.acmt_crawler.last_logout_time = time()
+                trying += 1
                 continue
+        self.Log_write('--> Bad connection exiting','error')
+        exit(1)
 
     def save_photo(self):
         self.acmt_crawler.save_photo()
@@ -392,15 +414,11 @@ class SpiderACMT:
     def delete_temp_photo(self):
         self.acmt_crawler.delete_temp()
     
-    def test_run(self):
+    def test_run(self,stop_at=3):
         print(f">> After testing done, you need to delete images in the {EXCEL_PATH} after test run")
         print(f">> Or the file might have duplicate image on top of other.")
-        self.__main(stop_at_offset = 1)
-        # try:
-        #     self.__main(stop_at_offset = 3)
-        # except Exception as e:
-        #     self.acmt_crawler.Log_write(e,stat='error')
-        #     self.acmt_crawler.logout_akun()
+        self.driver.get(URL)
+        self.__main(stop_at_offset = stop_at)
 
     def delete_snapshots(self):
         folder_snapshots = self.acmt_crawler.snapshots_folder
@@ -410,7 +428,6 @@ class SpiderACMT:
         # Stop at offset 0 means it will stop at ROW_AKHIR if defined, it will stop at last checkpoint + stop_at_offset
         driver = self.driver
         acmt_crawler = self.acmt_crawler
-        driver.get(URL)
         acmt_crawler.Log_write(str(acmt_crawler))
         # Overlay
         try:
@@ -475,6 +492,7 @@ class SpiderACMT:
                 continue
             acmt_crawler.Log_write(f'No.{nomer} Mencari foto . . .')
             acmt_crawler.search_pelanggan(str_pelanggan)
+            acmt_crawler.table_filter()
             data_foto = acmt_crawler.lihat_foto(str_pelanggan,request_session = session)
             if data_foto == False:
                 acmt_crawler.Log_write("--> Cache img updated [No image] ..")
@@ -493,10 +511,21 @@ class SpiderACMT:
             acmt_crawler.checkpoint(row,nomer,str_pelanggan)
             acmt_crawler.Log_write(f"\x1b[1;96m>> Total left : {ROW_AKHIR-ROW_AWAL-nomer}\x1b[0m")
             nomer+=1
-        acmt_crawler.save_photo()
         # acmt_crawler.logout_akun()
         acmt_crawler.Log_write('Webdriver flush\nExiting . . .')
         driver.quit()
+        continue_to_save_and_delete_temp_images = True
+        for key, value in cache_ids.items():
+            # Check if "status_value" is False for each key
+            if value.get("status_value") == "False":
+                acmt_crawler.Log_write(f"Status value for {key} is False.","warning")
+                continue_to_save_and_delete_temp_images = False
+        if continue_to_save_and_delete_temp_images is False:
+            acmt_crawler.Log_write(f"Cannot save to document, possible fix rerun this script but enable the main.save_photo()","warning")
+            acmt_crawler.Log_write('\x1b[1;92mDone saving to snapshot ...')
+            acmt_crawler.Log_write(str(acmt_crawler))
+            exit()
+        acmt_crawler.save_photo()
         acmt_crawler.Log_write('\x1b[1;92mAll done ...')
         acmt_crawler.Log_write(str(acmt_crawler))
 
@@ -512,4 +541,4 @@ if __name__ == '__main__':
     # Uncomment to use individual functionality you need
     # main.save_photo()
     # main.delete_temp_photo()
-    # main.test_run()
+    # main.test_run(stop_at=3)
