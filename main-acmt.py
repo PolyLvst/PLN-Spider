@@ -1,4 +1,4 @@
-version___ = 'PLN Spider ACMT v1.5'
+version___ = 'PLN Spider ACMT v1.6'
 from uuid import uuid4
 from dotenv import load_dotenv
 from selenium.webdriver.common.by import By
@@ -139,15 +139,26 @@ class ACMT:
         except Exception:
             raise
 
-    def table_filter(self):
+    def table_filter(self,flip=False):
         try:
             WebDriverWait(self.driver, 30).until(EC.presence_of_element_located((By.XPATH, "//div[@role='columnheader'][contains(.,'BLTH')]")))
             filter_blth = self.driver.find_element('xpath',"//div[@role='columnheader'][contains(.,'BLTH')]")
             attribut_filter = filter_blth.get_attribute("class")
-            if "sort-desc" not in attribut_filter:
+            sort_asc_flag = "sort-asc" in attribut_filter
+            sort_desc_flag = "sort-desc" in attribut_filter
+            # Trigger when first page load
+            if sort_desc_flag == False and sort_asc_flag == False:
                 filter_blth.click()
                 filter_blth.click()
                 self.Log_write(">> Filtered BLTH desc")
+            # Triggered when this iteration set to ascending
+            if sort_desc_flag == False and sort_asc_flag == True:
+                filter_blth.click()
+                self.Log_write(">> Filtered BLTH desc")
+            if flip:
+                filter_blth.click()
+                self.Log_write(">> Filtered BLTH asc")
+            
         except Exception as e:
             self.Log_write(f">> Error in filter blth {e}","error")
             raise
@@ -162,7 +173,8 @@ class ACMT:
 
     def lihat_foto(self,id_pelanggan,request_session):
         trying = 1
-        final_image_source = ''
+        final_image_source = None
+        try_flipping_filter = True
         while True:
             self.Log_write(f'--> ID : {id_pelanggan}, Percobaan ke : {trying}')
             # will exit after +1 trying
@@ -173,7 +185,6 @@ class ACMT:
             try:
                 # Frame foto iframe
                 img_frames = WebDriverWait(self.driver, 15).until(EC.visibility_of_any_elements_located((By.CLASS_NAME,"gwt-Frame")))
-                image_source = ""
                 for fr_num,frame in enumerate(img_frames):
                     self.Log_write(f">> Switching to frame : {fr_num}")
                     self.driver.switch_to.frame(frame)
@@ -184,13 +195,25 @@ class ACMT:
                     if image_width > '0' or image_height > '0':
                         image_source = img_element.get_attribute("src")
                         self.driver.switch_to.default_content()
+                        response = request_session.get(image_source,timeout=3)
+                        if len(response.content) == 0:
+                            self.Log_write(f">> Warning image size is 0 bytes ...")
+                            continue
+                        self.Log_write(f">> Response image [OK] : {response.status_code} | {image_source}")
+                        final_image_source = response
                         break
                     self.driver.switch_to.default_content()
-                if image_source:
-                    response = request_session.get(image_source,timeout=3,)
-                    self.Log_write(f">> Response image [OK] : {response.status_code} | {image_source}")
-                    final_image_source = response
+                if final_image_source != None:
                     break
+                if try_flipping_filter:
+                    self.Log_write(f">> No image trying asc blth filter [1 time] ...")
+                    self.Log_write(f">> Closing frame ...")
+                    WebDriverWait(self.driver, 5).until(EC.presence_of_element_located((By.XPATH,"//div[contains(@class, 'x-tool-close')]")))
+                    close_button = self.driver.find_element('xpath',"//div[contains(@class, 'x-tool-close')]")
+                    close_button.click()
+                    self.table_filter(flip=True)
+                    try_flipping_filter = False
+                    continue
                 self.Log_write(f">> No image")
                 final_image_source = False
                 break
@@ -198,6 +221,7 @@ class ACMT:
                 trying+=1
                 self.Log_write(f"Something went wrong [Trying again] {e}","error")
                 self.driver.save_screenshot(f"./logs/Error_{uuid4()}.png")
+                self.driver.switch_to.default_content()
                 self.driver.refresh()
                 self.click_sidebar()
                 self.search_pelanggan(id_pelanggan)
@@ -283,6 +307,7 @@ class ACMT:
             exit(1)
 
     def download_photo(self,source,cur_pos,status_value):
+        self.Log_write("--> Updating cache img ..")
         cache_img = self.cache_img
         temp_folder = self.temp_folder
         response = source
@@ -378,10 +403,14 @@ class ACMT:
             print(f"{file} has been deleted as it's more than 3 days old.","warning")
 
 class SpiderACMT:
-    def __init__(self):
-        # use the name of your firefox profile
-        self.driver = myutils.WebScraperUtils.start_web_dv(profile="WebScraping")
-        self.acmt_crawler = ACMT(driver=self.driver)
+    def __init__(self,no_driver=False):
+        if no_driver:
+            self.driver = None
+            self.acmt_crawler = ACMT(driver=None)
+        else:
+            # use the name of your firefox profile
+            self.driver = myutils.WebScraperUtils.start_web_dv(profile="WebScraping")
+            self.acmt_crawler = ACMT(driver=self.driver)
 
     def run(self):
         self.driver.get(URL)
@@ -475,7 +504,7 @@ class SpiderACMT:
             splice_range = 0
         else:
             splice_range = nomer-1
-        acmt_crawler.Log_write(f"\x1b[1;96m>> Total : {ROW_AKHIR-ROW_AWAL}\x1b[0m")
+        acmt_crawler.Log_write(f"\x1b[1;96m>> Total : {ROW_AKHIR-(ROW_AWAL-1)}\x1b[0m")
         # Convert the dictionary items to a list and slice it
         if stop_at_offset:
             items_list = list(cache_ids.items())[splice_range:splice_range+stop_at_offset]
@@ -509,18 +538,26 @@ class SpiderACMT:
             # Log_write("--> Workbook updated!")
             acmt_crawler.Log_write(f'--> {hour}:{minute}:{second}')
             acmt_crawler.checkpoint(row,nomer,str_pelanggan)
-            acmt_crawler.Log_write(f"\x1b[1;96m>> Total left : {ROW_AKHIR-ROW_AWAL-nomer}\x1b[0m")
+            acmt_crawler.Log_write(f"\x1b[1;96m>> Total left : {ROW_AKHIR-(ROW_AWAL-1)-nomer}\x1b[0m")
             nomer+=1
         # acmt_crawler.logout_akun()
         acmt_crawler.Log_write('Webdriver flush\nExiting . . .')
         driver.quit()
         continue_to_save_and_delete_temp_images = True
-        for key, value in cache_ids.items():
+        check_ids_vals = acmt_crawler.get_cached_ids()
+        false_ids = {}
+        for key, value in check_ids_vals.items():
             # Check if "status_value" is False for each key
             if value.get("status_value") == "False":
                 acmt_crawler.Log_write(f"Status value for {key} is False.","warning")
                 continue_to_save_and_delete_temp_images = False
+                false_ids[f"no-{key}"] = {
+                    "str_pelanggan": key,
+                    "status_value": "False"
+                }
         if continue_to_save_and_delete_temp_images is False:
+            acmt_crawler.Log_write(f"Problematic ids : ","warning")
+            acmt_crawler.Log_write(false_ids,"warning")
             acmt_crawler.Log_write(f"Cannot save to document, possible fix rerun this script but enable the main.save_photo()","warning")
             acmt_crawler.Log_write('\x1b[1;92mDone saving to snapshot ...')
             acmt_crawler.Log_write(str(acmt_crawler))
@@ -537,8 +574,10 @@ class SpiderACMT:
 if __name__ == '__main__':
     main = SpiderACMT()
     main.run()
-    # exit(1)
     # Uncomment to use individual functionality you need
-    # main.save_photo()
-    # main.delete_temp_photo()
+
     # main.test_run(stop_at=3)
+
+    # main_test = SpiderACMT(no_driver=True)
+    # main_test.save_photo()
+    # main_test.delete_temp_photo()
