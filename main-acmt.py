@@ -1,4 +1,4 @@
-version___ = 'PLN Spider ACMT v1.6'
+version___ = 'PLN Spider ACMT v1.7'
 from uuid import uuid4
 from dotenv import load_dotenv
 from selenium.webdriver.common.by import By
@@ -28,7 +28,7 @@ ROW_AKHIR = int(find_this['ROW_END_acmt'])
 COL_ID = find_this['ID_COL_acmt']
 COL_PHOTO = find_this['PHOTO_COL_acmt']
 # -- Berapa kali untuk mencoba mencari foto saat internet tidak stabil
-BANYAK_PERCOBAAN = int(find_this['BANYAK_PERCOBAAN'])
+BANYAK_PERCOBAAN = 3
 # -- Setting Foto --
 desired_width = int(find_this['img_width_acmt'])
 desired_height = int(find_this['img_height_acmt'])
@@ -219,9 +219,9 @@ class ACMT:
                 break
             except Exception as e:
                 trying+=1
-                self.Log_write(f"Something went wrong [Trying again] {e}","error")
-                self.driver.save_screenshot(f"./logs/Error_{uuid4()}.png")
-                self.driver.switch_to.default_content()
+                uid_err = uuid4()
+                self.Log_write(f"Something went wrong [Trying again] photo error : {uid_err} {e}","error")
+                self.driver.save_screenshot(f"./logs/Error_{uid_err}.png")
                 self.driver.refresh()
                 self.click_sidebar()
                 self.search_pelanggan(id_pelanggan)
@@ -411,28 +411,29 @@ class SpiderACMT:
             # use the name of your firefox profile
             self.driver = myutils.WebScraperUtils.start_web_dv(profile="WebScraping")
             self.acmt_crawler = ACMT(driver=self.driver)
+        self.trying = 0
 
     def run(self):
         self.driver.get(URL)
-        trying = 0
-        while trying < BANYAK_PERCOBAAN:
+        self.__login()
+        while self.trying < BANYAK_PERCOBAAN:
             try:
                 self.__main()
                 self.__cleanup()
-                break
+                exit()
             except Exception as e:
+                uid_err = uuid4()
                 self.acmt_crawler.Log_write(f"Got error : {e}")
-                self.acmt_crawler.Log_write(f"\x1b[1;35m--> [Refreshing]\x1b[0m","warning")
-                self.driver.save_screenshot(f"./logs/Error_{uuid4()}.png")
+                self.acmt_crawler.Log_write(f"\x1b[1;35m--> [Refreshing] photo {uid_err} \x1b[0m","warning")
+                self.driver.save_screenshot(f"./logs/Error_{uid_err}.png")
                 self.driver.refresh()
-                self.driver.switch_to.default_content()
                 # try:
                 #     self.acmt_crawler.logout_akun()
                 # except:
                 #     self.driver.save_screenshot(f"./logs/Error_{uuid4()}.png")
                 #     self.acmt_crawler.Log_write("Something went wrong in logging out")
                 self.acmt_crawler.last_logout_time = time()
-                trying += 1
+                self.trying += 1
                 continue
         self.Log_write('--> Bad connection exiting','error')
         exit(1)
@@ -447,17 +448,16 @@ class SpiderACMT:
         print(f">> After testing done, you need to delete images in the {EXCEL_PATH} after test run")
         print(f">> Or the file might have duplicate image on top of other.")
         self.driver.get(URL)
+        self.__login()
         self.__main(stop_at_offset = stop_at)
 
     def delete_snapshots(self):
         folder_snapshots = self.acmt_crawler.snapshots_folder
         self.acmt_crawler.clean_old_files(folder_snapshots)
 
-    def __main(self,stop_at_offset: int = 0):
-        # Stop at offset 0 means it will stop at ROW_AKHIR if defined, it will stop at last checkpoint + stop_at_offset
+    def __login(self):
         driver = self.driver
         acmt_crawler = self.acmt_crawler
-        acmt_crawler.Log_write(str(acmt_crawler))
         # Overlay
         try:
             overlay = driver.find_element(By.CLASS_NAME, "blockOverlay")
@@ -491,6 +491,12 @@ class SpiderACMT:
         else:
             acmt_crawler.Log_write('Something went wrong ! [User input not found]','error')
             driver.quit()
+
+    def __main(self,stop_at_offset: int = 0):
+        # Stop at offset 0 means it will stop at ROW_AKHIR if defined, it will stop at last checkpoint + stop_at_offset
+        driver = self.driver
+        acmt_crawler = self.acmt_crawler
+        acmt_crawler.Log_write(str(acmt_crawler))
         session = requests.Session()
         selenium_cookies = driver.get_cookies()
         requests_cookies = {cookie['name']: cookie['value'] for cookie in selenium_cookies}
@@ -540,6 +546,7 @@ class SpiderACMT:
             acmt_crawler.checkpoint(row,nomer,str_pelanggan)
             acmt_crawler.Log_write(f"\x1b[1;96m>> Total left : {ROW_AKHIR-(ROW_AWAL-1)-nomer}\x1b[0m")
             nomer+=1
+            self.trying = 0
         # acmt_crawler.logout_akun()
         acmt_crawler.Log_write('Webdriver flush\nExiting . . .')
         driver.quit()
@@ -567,6 +574,9 @@ class SpiderACMT:
         acmt_crawler.Log_write(str(acmt_crawler))
 
     def __cleanup(self):
+        choices = input("Do you want to delete temp images? [y/n]")
+        if choices.lower() != "y":
+            return
         acmt_crawler.Log_write('\x1b[1;92mCleaning up temp images ...')
         acmt_crawler = self.acmt_crawler
         acmt_crawler.delete_temp()
