@@ -342,7 +342,7 @@ class ACMT:
         worksheet = workbook.active
         starts_row = ROW_AWAL
         for customer_id in data:
-            self.Log_write(f"--> Saving {customer_id} ..")
+            print(f"--> Saving {customer_id} ..")
             cur_pos = starts_row
             foto_cell=worksheet[f'{COL_PHOTO}{cur_pos}']
             image_path = data[customer_id]["img"]
@@ -558,8 +558,8 @@ class SpiderACMT:
             if value.get("status_value") == "False":
                 acmt_crawler.Log_write(f"Status value for {key} is False.","warning")
                 continue_to_save_and_delete_temp_images = False
-                false_ids[f"no-{key}"] = {
-                    "str_pelanggan": key,
+                false_ids[key] = {
+                    "str_pelanggan": value.get("str_pelanggan"),
                     "status_value": "False"
                 }
         if continue_to_save_and_delete_temp_images is False:
