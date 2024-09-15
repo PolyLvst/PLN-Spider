@@ -193,9 +193,10 @@ class ACMT:
                 try:
                     img_frames = WebDriverWait(self.driver, 15).until(EC.visibility_of_any_elements_located((By.CLASS_NAME,"gwt-Frame")))
                 except Exception:
-                    self.Log_write(f">> Frames not found trying to wait it out [3s] ...","error")
-                    sleep(3)
+                    self.Log_write(f">> Frames not found possible error is table not clicked ...","error")
+                    self.table_filter()
                     img_frames = WebDriverWait(self.driver, 15).until(EC.visibility_of_any_elements_located((By.CLASS_NAME,"gwt-Frame")))
+                        
                 for fr_num,frame in enumerate(img_frames):
                     self.Log_write(f">> Switching to frame : {fr_num}")
                     self.driver.switch_to.frame(frame)
