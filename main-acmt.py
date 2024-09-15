@@ -120,13 +120,13 @@ class ACMT:
             prabayar = self.driver.find_element(By.XPATH,"//span[contains(.,'History Pelanggan Prabayar')]")
             prabayar.click()
         except Exception:
-            self.Log_write("Something went wrong [Sidebar not detected]")
-            self.Log_write("Trying to refresh it ...")
+            self.Log_write("Something went wrong [Sidebar not detected]","error")
+            self.Log_write("Trying to refresh it ...","error")
             self.driver.refresh()
             try:
                 self.click_sidebar()
             except Exception:
-                self.Log_write("Something went wrong final ... [Sidebar not detected]")
+                self.Log_write("Something went wrong final ... [Sidebar not detected]","error")
                 raise
             # exit(1)
 
@@ -190,7 +190,12 @@ class ACMT:
                 raise
             try:
                 # Frame foto iframe
-                img_frames = WebDriverWait(self.driver, 15).until(EC.visibility_of_any_elements_located((By.CLASS_NAME,"gwt-Frame")))
+                try:
+                    img_frames = WebDriverWait(self.driver, 15).until(EC.visibility_of_any_elements_located((By.CLASS_NAME,"gwt-Frame")))
+                except Exception:
+                    self.Log_write(f">> Frames not found trying to wait it out [3s] ...","error")
+                    sleep(3)
+                    img_frames = WebDriverWait(self.driver, 15).until(EC.visibility_of_any_elements_located((By.CLASS_NAME,"gwt-Frame")))
                 for fr_num,frame in enumerate(img_frames):
                     self.Log_write(f">> Switching to frame : {fr_num}")
                     self.driver.switch_to.frame(frame)
