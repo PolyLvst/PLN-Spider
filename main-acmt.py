@@ -435,7 +435,7 @@ class SpiderACMT:
                 self.acmt_crawler.last_logout_time = time()
                 self.trying += 1
                 continue
-        self.Log_write('--> Bad connection exiting','error')
+        self.acmt_crawler.Log_write('--> Bad connection exiting','error')
         exit(1)
 
     def save_photo(self):
