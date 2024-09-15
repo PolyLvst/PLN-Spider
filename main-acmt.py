@@ -121,8 +121,14 @@ class ACMT:
             prabayar.click()
         except Exception:
             self.Log_write("Something went wrong [Sidebar not detected]")
+            self.Log_write("Trying to refresh it ...")
+            self.driver.refresh()
+            try:
+                self.click_sidebar()
+            except Exception:
+                self.Log_write("Something went wrong final ... [Sidebar not detected]")
+                raise
             # exit(1)
-            raise
 
     def search_pelanggan(self,id_pelanggan):
         try:
