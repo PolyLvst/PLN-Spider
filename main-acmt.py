@@ -104,7 +104,10 @@ class ACMT:
             self.Log_write("Logout button not found","error")
             exit(1)
 
-    def click_sidebar(self):
+    def click_sidebar(self,trying=0):
+        if trying >= 3:
+            self.Log_write("Something went wrong final ... [Sidebar not detected]","error")
+            raise
         try:
             # Overlay loading
             self.driver.find_element(By.CLASS_NAME, "GCNLWM1NBC")
@@ -123,11 +126,8 @@ class ACMT:
             self.Log_write("Something went wrong [Sidebar not detected]","error")
             self.Log_write("Trying to refresh it ...","error")
             self.driver.refresh()
-            try:
-                self.click_sidebar()
-            except Exception:
-                self.Log_write("Something went wrong final ... [Sidebar not detected]","error")
-                raise
+            self.click_sidebar(trying=trying+1)
+            return
             # exit(1)
 
     def search_pelanggan(self,id_pelanggan):
@@ -145,7 +145,10 @@ class ACMT:
         except Exception:
             raise
 
-    def table_filter(self,flip=False):
+    def table_filter(self,flip=False,trying=0,id_pelanggan=None):
+        if trying >= 3:
+            self.Log_write(f">> Error in filter blth final ... {e}","error")
+            raise
         try:
             WebDriverWait(self.driver, 30).until(EC.presence_of_element_located((By.XPATH, "//div[@role='columnheader'][contains(.,'BLTH')]")))
             filter_blth = self.driver.find_element('xpath',"//div[@role='columnheader'][contains(.,'BLTH')]")
@@ -167,7 +170,10 @@ class ACMT:
             
         except Exception as e:
             self.Log_write(f">> Error in filter blth {e}","error")
-            raise
+            self.click_sidebar()
+            self.search_pelanggan(id_pelanggan)
+            self.table_filter(trying=trying+1,id_pelanggan=id_pelanggan)
+            return
         try:
             WebDriverWait(self.driver, 30).until(EC.visibility_of_element_located((By.XPATH,"//div[contains(@class,'x-grid3-cell-inner x-grid3-col-blth')]")))
             element = self.driver.find_element(By.XPATH, "//div[contains(@class,'x-grid3-cell-inner x-grid3-col-blth')]")
@@ -194,7 +200,7 @@ class ACMT:
                     img_frames = WebDriverWait(self.driver, 15).until(EC.visibility_of_any_elements_located((By.CLASS_NAME,"gwt-Frame")))
                 except Exception:
                     self.Log_write(f">> Frames not found possible error is table not clicked ...","error")
-                    self.table_filter()
+                    self.table_filter(id_pelanggan=id_pelanggan)
                     img_frames = WebDriverWait(self.driver, 15).until(EC.visibility_of_any_elements_located((By.CLASS_NAME,"gwt-Frame")))
                         
                 for fr_num,frame in enumerate(img_frames):
@@ -223,7 +229,7 @@ class ACMT:
                     WebDriverWait(self.driver, 5).until(EC.presence_of_element_located((By.XPATH,"//div[contains(@class, 'x-tool-close')]")))
                     close_button = self.driver.find_element('xpath',"//div[contains(@class, 'x-tool-close')]")
                     close_button.click()
-                    self.table_filter(flip=True)
+                    self.table_filter(flip=True,id_pelanggan=id_pelanggan)
                     try_flipping_filter = False
                     continue
                 self.Log_write(f">> No image")
@@ -237,7 +243,7 @@ class ACMT:
                 self.driver.refresh()
                 self.click_sidebar()
                 self.search_pelanggan(id_pelanggan)
-                self.table_filter()
+                self.table_filter(id_pelanggan=id_pelanggan)
         WebDriverWait(self.driver, 5).until(EC.presence_of_element_located((By.XPATH,"//div[contains(@class, 'x-tool-close')]")))
         close_button = self.driver.find_element('xpath',"//div[contains(@class, 'x-tool-close')]")
         close_button.click()
@@ -436,7 +442,7 @@ class SpiderACMT:
             except Exception as e:
                 uid_err = uuid4()
                 self.acmt_crawler.Log_write(f"Got error : {e}")
-                self.acmt_crawler.Log_write(f"\x1b[1;35m--> [Refreshing] photo {uid_err} \x1b[0m","warning")
+                self.acmt_crawler.Log_write(f"\x1b[1;35m--> [Refreshing] ({self.trying}) photo {uid_err} \x1b[0m","warning")
                 self.driver.save_screenshot(f"./logs/Error_{uid_err}.png")
                 self.driver.refresh()
                 # try:
@@ -539,7 +545,7 @@ class SpiderACMT:
                 continue
             acmt_crawler.Log_write(f'No.{nomer} Mencari foto . . .')
             acmt_crawler.search_pelanggan(str_pelanggan)
-            acmt_crawler.table_filter()
+            acmt_crawler.table_filter(id_pelanggan=str_pelanggan)
             data_foto = acmt_crawler.lihat_foto(str_pelanggan,request_session = session)
             if data_foto == False:
                 acmt_crawler.Log_write("--> Cache img updated [No image] ..")
