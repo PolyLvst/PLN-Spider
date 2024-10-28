@@ -47,7 +47,10 @@ class ACMT:
         self.driver = driver
         self.snapshots_folder = './DataSnapshots'
         self.temp_folder = "./TempImages/"
+        self.temp_folder_meteran = f"{self.temp_folder}meteran"
+        self.temp_folder_rumah = f"{self.temp_folder}rumah"
         self.cache_img = f"{self.snapshots_folder}/cache_img.json"
+        self.cache_img_rumah = f"{self.snapshots_folder}/cache_img_rumah.json"
         self.ids_path = f"{self.snapshots_folder}/cached_ids.json"
         self.checkpoint_path = f'{self.snapshots_folder}/checkpoint.json'
         self.last_logout_time = 1
@@ -183,6 +186,29 @@ class ACMT:
             self.Log_write("--> Table not reachable","error")
             raise
 
+    def lihat_foto_rumah(self, id_pelanggan, request_session):
+        WebDriverWait(self.driver, 5).until(EC.presence_of_element_located((By.XPATH,f"//img[contains(@title,'PHOTO RUMAH - {id_pelanggan}')]")))
+        img_element = self.driver.find_element('xpath',f"//img[contains(@title,'PHOTO RUMAH - {id_pelanggan}')]")
+        image_width = img_element.get_attribute('width')
+        image_height = img_element.get_attribute('height')
+        if image_width > '0' or image_height > '0':
+            image_source = img_element.get_attribute("src")
+            try:
+                response = request_session.get(image_source,timeout=30)
+            except Exception as e:
+                print(e)
+                print(">> Trying to sleep it off, and trying again [5s]")
+                sleep(5)
+                response = request_session.get(image_source,timeout=30)
+            if len(response.content) == 0:
+                self.Log_write(f">> Warning image size is 0 bytes ...")
+                return False
+            else:
+                self.Log_write(f">> Response image rumah [OK] : {response.status_code} | {image_source}")
+                return response
+        else:
+            return False
+
     def lihat_foto(self,id_pelanggan,request_session):
         trying = 1
         final_image_source = None
@@ -213,7 +239,13 @@ class ACMT:
                     if image_width > '0' or image_height > '0':
                         image_source = img_element.get_attribute("src")
                         self.driver.switch_to.default_content()
-                        response = request_session.get(image_source,timeout=3)
+                        try:
+                            response = request_session.get(image_source,timeout=30)
+                        except Exception as e:
+                            print(e)
+                            print(">> Trying to sleep it off, and trying again [5s]")
+                            sleep(5)
+                            response = request_session.get(image_source,timeout=30)
                         if len(response.content) == 0:
                             self.Log_write(f">> Warning image size is 0 bytes ...")
                             continue
@@ -324,10 +356,32 @@ class ACMT:
             self.Log_write("Something wrong happens [cached_ids not found]","error")
             exit(1)
 
+    def download_photo_rumah(self, source_rumah, cur_pos, status_value):
+        self.Log_write("--> Updating cache img rumah ..")
+        cache_img = self.cache_img_rumah
+        temp_folder_rumah = self.temp_folder_rumah
+        response_rumah = source_rumah
+        if source_rumah == False:
+            image_path = "Tidak tersedia"
+        else:
+            image_name = f"image_{cur_pos}.jpg"  # You can change the file name logic as needed
+            image_path = os.path.join(temp_folder_rumah, image_name)
+            with open(image_path, "wb") as f:
+                f.write(response_rumah.content)
+        data = {}
+        if os.path.exists(cache_img):
+            with open(cache_img,"r") as f:
+                data = json.load(f)
+        with open(cache_img,"w") as f:
+            data[cur_pos] = {"img":image_path,
+                            "status_value":status_value}
+            json.dump(data,f)
+        self.Log_write("--> Cache img rumah updated ..")
+
     def download_photo(self,source,cur_pos,status_value):
         self.Log_write("--> Updating cache img ..")
         cache_img = self.cache_img
-        temp_folder = self.temp_folder
+        temp_folder = self.temp_folder_meteran
         response = source
         if source == False:
             image_path = "Tidak tersedia"
@@ -545,8 +599,16 @@ class SpiderACMT:
                 continue
             acmt_crawler.Log_write(f'No.{nomer} Mencari foto . . .')
             acmt_crawler.search_pelanggan(str_pelanggan)
+            foto_rumah = acmt_crawler.lihat_foto_rumah(str_pelanggan,request_session = session)
             acmt_crawler.table_filter(id_pelanggan=str_pelanggan)
             data_foto = acmt_crawler.lihat_foto(str_pelanggan,request_session = session)
+            if foto_rumah == False:
+                acmt_crawler.Log_write("--> Foto rumah not found [No image] [ok] ..")
+                acmt_crawler.download_photo_rumah(foto_rumah,row,"False")
+            else:
+                acmt_crawler.Log_write("--> Foto rumah found [saving] ..")
+                acmt_crawler.download_photo_rumah(foto_rumah,row,"True")
+
             if data_foto == False:
                 acmt_crawler.Log_write("--> Cache img updated [No image] ..")
                 acmt_crawler.download_photo(data_foto,row,"False")
@@ -587,9 +649,10 @@ class SpiderACMT:
             acmt_crawler.Log_write('\x1b[1;92mDone saving to snapshot ...')
             acmt_crawler.Log_write(str(acmt_crawler))
             exit()
-        acmt_crawler.save_photo()
         acmt_crawler.Log_write('\x1b[1;92mAll done ...')
         acmt_crawler.Log_write(str(acmt_crawler))
+        input("Do you want to save photo? [ctrl c to abort]")
+        acmt_crawler.save_photo()
 
     def __cleanup(self):
         choices = input("Do you want to delete temp images? [y/n]")
@@ -601,6 +664,9 @@ class SpiderACMT:
 
 if __name__ == '__main__':
     main = SpiderACMT()
+    snap = main.acmt_crawler.snapshots_folder
+    cached_id = "/cached_ids.json"
+    main.acmt_crawler.ids_path = f"{snap}{cached_id}"
     main.run()
     # Uncomment to use individual functionality you need
 
