@@ -7,7 +7,7 @@ $file_path = "C:\Users\$current_username\Documents\PLN-Spider"
 # Use the file_path as needed
 cd $file_path
 .\venv\Scripts\activate
-py main-acmt.py -p 1
+py main-acmt.py -p 2
 $exitCode = $LASTEXITCODE
 if ($exitCode -gt 0) {
     echo Error

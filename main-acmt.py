@@ -1,4 +1,6 @@
 version___ = 'PLN Spider ACMT v1.7'
+import argparse
+from io import BytesIO
 from uuid import uuid4
 from dotenv import load_dotenv
 from selenium.webdriver.common.by import By
@@ -8,6 +10,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from datetime import datetime
 from selenium.webdriver.common.action_chains import ActionChains
 from openpyxl.drawing.image import Image
+from PIL import Image as pilimage
 from datetime import datetime
 from openpyxl import load_workbook
 import json
@@ -39,6 +42,8 @@ sleep_retry_foto = 2
 now__ = datetime.now()
 now_time = now__.strftime('%d-%m-%Y_%H-%M-%S')
 log_file_path = './logs/PLN-Spider-ACMT'+now_time+'.log'
+parser = argparse.ArgumentParser(prog="ACMT",description="Web scraper")
+parser.add_argument("-p","--profile",type=str,dest="profile",help="Use your cache_id 1 or 2")
 
 class ACMT:
     def __init__(self,driver):
@@ -47,6 +52,8 @@ class ACMT:
         self.driver = driver
         self.snapshots_folder = './DataSnapshots'
         self.temp_folder = "./TempImages/"
+        os.makedirs(f"{self.temp_folder}/rumah", exist_ok=True)
+        os.makedirs(f"{self.temp_folder}/meteran", exist_ok=True)
         self.temp_folder_meteran = f"{self.temp_folder}meteran"
         self.temp_folder_rumah = f"{self.temp_folder}rumah"
         self.cache_img = f"{self.snapshots_folder}/cache_img.json"
@@ -67,6 +74,11 @@ class ACMT:
         input_captcha = self.driver.find_element('xpath',"//input[contains(@class,'gwt-TextBox x-component')]")
         input_captcha.click()
         input_captcha.clear()
+        # Capture screenshot as a binary (bytes) without saving to disk
+        screenshot = self.driver.get_screenshot_as_png()
+        # Load the screenshot into a PIL image and display it
+        image = pilimage.open(BytesIO(screenshot))
+        image.show()
         captcha = input("Input the captcha shown [type ! to reset captcha] : ")
         if captcha == "!":
             return False
@@ -178,10 +190,16 @@ class ACMT:
             self.table_filter(trying=trying+1,id_pelanggan=id_pelanggan)
             return
         try:
+            element = self.driver.find_element(By.XPATH, "//div[@class='x-grid-empty'][contains(.,'Data Empty')]")
+            return False
+        except Exception:
+            print(">> Great data is not empty")
+        try:
             WebDriverWait(self.driver, 30).until(EC.visibility_of_element_located((By.XPATH,"//div[contains(@class,'x-grid3-cell-inner x-grid3-col-blth')]")))
             element = self.driver.find_element(By.XPATH, "//div[contains(@class,'x-grid3-cell-inner x-grid3-col-blth')]")
             actions = ActionChains(self.driver)
             actions.double_click(element).perform()
+            return True
         except Exception:
             self.Log_write("--> Table not reachable","error")
             raise
@@ -335,8 +353,32 @@ class ACMT:
             str_pelanggan = id_pelanggan.value
             data[f"no-{str_pelanggan}"] = {"str_pelanggan":str_pelanggan,
                                         "status_value":"Init_state"}
-        with open(ids_path,"w") as f:
-            json.dump(data,f)
+        keys = list(data.keys())
+        midpoint = len(keys) // 2
+        # Split the keys into two lists
+        keys_chunk1 = keys[:midpoint]
+        keys_chunk2 = keys[midpoint:]
+
+        midpoint_chunk1 = len(keys_chunk1) // 2
+        midpoint_chunk2 = len(keys_chunk2) // 2
+
+        keys_chunk1A = keys_chunk1[:midpoint_chunk1]
+        keys_chunk1B = keys_chunk1[midpoint_chunk1:]
+        keys_chunk2A = keys_chunk2[:midpoint_chunk2]
+        keys_chunk2B = keys_chunk2[midpoint_chunk2:]
+        # Create two new dictionaries using the split keys
+        chunk1 = {key: data[key] for key in keys_chunk1A}
+        chunk2 = {key: data[key] for key in keys_chunk1B}
+        chunk3 = {key: data[key] for key in keys_chunk2A}
+        chunk4 = {key: data[key] for key in keys_chunk2B}
+        with open(f"{self.snapshots_folder}/cached_ids_1.json","w") as f:
+            json.dump(chunk1,f)
+        with open(f"{self.snapshots_folder}/cached_ids_2.json","w") as f:
+            json.dump(chunk2,f)
+        with open(f"{self.snapshots_folder}/cached_ids_3.json","w") as f:
+            json.dump(chunk3,f)
+        with open(f"{self.snapshots_folder}/cached_ids_4.json","w") as f:
+            json.dump(chunk4,f)
         self.Log_write("Init cached ids ..")
         workbook.close()
         return data
@@ -481,7 +523,8 @@ class SpiderACMT:
             self.acmt_crawler = ACMT(driver=None)
         else:
             # use the name of your firefox profile
-            self.driver = myutils.WebScraperUtils.start_web_dv(profile="WebScraping")
+            # self.driver = myutils.WebScraperUtils.start_web_dv(profile="WebScraping")
+            self.driver = myutils.WebScraperUtils.start_web_dv(profile=None)
             self.acmt_crawler = ACMT(driver=self.driver)
         self.trying = 0
 
@@ -600,8 +643,11 @@ class SpiderACMT:
             acmt_crawler.Log_write(f'No.{nomer} Mencari foto . . .')
             acmt_crawler.search_pelanggan(str_pelanggan)
             foto_rumah = acmt_crawler.lihat_foto_rumah(str_pelanggan,request_session = session)
-            acmt_crawler.table_filter(id_pelanggan=str_pelanggan)
-            data_foto = acmt_crawler.lihat_foto(str_pelanggan,request_session = session)
+            table_filter = acmt_crawler.table_filter(id_pelanggan=str_pelanggan)
+            if table_filter:
+                data_foto = acmt_crawler.lihat_foto(str_pelanggan,request_session = session)
+            else:
+                data_foto = False
             if foto_rumah == False:
                 acmt_crawler.Log_write("--> Foto rumah not found [No image] [ok] ..")
                 acmt_crawler.download_photo_rumah(foto_rumah,row,"False")
@@ -663,10 +709,21 @@ class SpiderACMT:
         acmt_crawler.delete_temp()
 
 if __name__ == '__main__':
+    args = parser.parse_args()
+    profile = args.profile
     main = SpiderACMT()
     snap = main.acmt_crawler.snapshots_folder
-    cached_id = "/cached_ids.json"
+    cached_id = f"/cached_ids_{profile}.json"
     main.acmt_crawler.ids_path = f"{snap}{cached_id}"
+
+    main.acmt_crawler.get_cached_ids()
+
+    cached_img = f"/cache_img_{profile}.json"
+    main.acmt_crawler.cache_img = f"{snap}{cached_img}"
+    cached_img_rumah = f"/cache_img_rumah_{profile}.json"
+    main.acmt_crawler.cache_img_rumah = f"{snap}{cached_img_rumah}"
+    checkpoint = f"/checkpoint_{profile}.json"
+    main.acmt_crawler.checkpoint_path = f"{snap}{checkpoint}"
     main.run()
     # Uncomment to use individual functionality you need
 

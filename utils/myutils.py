@@ -39,15 +39,17 @@ class WebScraperUtils:
         options.set_preference("network.trr.uri", "https://mozilla.cloudflare-dns.com/dns-query")
         profile_path = os.path.join(os.getenv('APPDATA'), 'Mozilla', 'Firefox', 'Profiles')
         # List all directories in the Profiles folder
-        profiles = [d for d in os.listdir(profile_path) if os.path.isdir(os.path.join(profile_path, d))]
-        path_prof = None 
-        for path_p in profiles:
-            if profile in path_p:
-                path_prof = os.path.join(profile_path, path_p)
-                break
-        if path_prof:
-            print(f"-- Using {profile} profile")
-            options.add_argument("-profile")
-            options.add_argument(path_prof)
+        if profile:
+            profiles = [d for d in os.listdir(profile_path) if os.path.isdir(os.path.join(profile_path, d))]
+            path_prof = None 
+            for path_p in profiles:
+                if profile in path_p:
+                    path_prof = os.path.join(profile_path, path_p)
+                    break
+            if path_prof:
+                print(f"-- Using {profile} profile")
+                options.add_argument("-profile")
+                options.add_argument(path_prof)
+        options.add_argument("-headless")
         driver = webdriver.Firefox(options=options)
         return driver
