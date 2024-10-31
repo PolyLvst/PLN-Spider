@@ -3,6 +3,13 @@ from selenium.webdriver.firefox.options import Options
 import os
 from selenium import webdriver
 
+os.makedirs("logs", exist_ok=True)
+os.makedirs("DataSnaphots", exist_ok=True)
+os.makedirs("Document", exist_ok=True)
+os.makedirs("TempImages", exist_ok=True)
+os.makedirs("TempImages/rumah", exist_ok=True)
+os.makedirs("TempImages/meteran", exist_ok=True)
+
 class MyLoggerUtils:
     def __init__(self,log_file_path: str = "./logs/MyLoggerUtils.log") -> None:
         self.log_file_path = log_file_path

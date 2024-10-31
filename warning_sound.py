@@ -39,13 +39,13 @@ def Log_write(text,stat='info'):
     logging.log(log_level,text)
 
 def play_warning_sound():
-    playsound(soft_sound)
-    playsound(medium_sound)
+    # playsound(soft_sound)
+    # playsound(medium_sound)
     while True:
-        playsound(security_alarm_sound)
         for _ in range(0,5):
             playsound(warning_sound)
         playsound(warning_bouncy2_sound)
+        playsound(security_alarm_sound)
         # playsound(warning_bouncy_sound)
         playsound(honk_alarm_sound)
         # playsound(alarm_sound)
