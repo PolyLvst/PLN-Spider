@@ -4,7 +4,7 @@ import os
 from selenium import webdriver
 
 os.makedirs("logs", exist_ok=True)
-os.makedirs("DataSnaphots", exist_ok=True)
+os.makedirs("DataSnapshots", exist_ok=True)
 os.makedirs("Document", exist_ok=True)
 os.makedirs("TempImages", exist_ok=True)
 os.makedirs("TempImages/rumah", exist_ok=True)
