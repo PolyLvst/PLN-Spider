@@ -30,6 +30,7 @@ ROW_AWAL = int(find_this['ROW_START_acmt'])
 ROW_AKHIR = int(find_this['ROW_END_acmt'])
 COL_ID = find_this['ID_COL_acmt']
 COL_PHOTO = find_this['PHOTO_COL_acmt']
+IS_PASCABAYAR = bool(int(find_this['IS_PASCABAYAR']))
 # -- Berapa kali untuk mencoba mencari foto saat internet tidak stabil
 BANYAK_PERCOBAAN = 3
 # -- Setting Foto --
@@ -145,6 +146,32 @@ class ACMT:
             return
             # exit(1)
 
+    def click_sidebar_info(self,trying=0):
+        if trying >= 3:
+            self.Log_write("Something went wrong final ... [Sidebar not detected]","error")
+            raise
+        try:
+            # Overlay loading
+            self.driver.find_element(By.CLASS_NAME, "GCNLWM1NBC")
+            WebDriverWait(self.driver, 40).until(EC.invisibility_of_element_located((By.CLASS_NAME, "GCNLWM1NBC")))
+        except Exception:
+            self.Log_write("Great no overlay .. ")
+        try:
+            # Folder Informasi
+            WebDriverWait(self.driver, 40).until(EC.presence_of_element_located((By.XPATH, "(//img[contains(@class,' x-tree3-node-joint')])[7]")))
+            informasi = self.driver.find_element(By.XPATH,"(//img[contains(@class,' x-tree3-node-joint')])[7]")
+            informasi.click()
+            WebDriverWait(self.driver, 40).until(EC.presence_of_element_located((By.XPATH, "//span[contains(.,'Informasi Pelanggan')]")))
+            pascabayar = self.driver.find_element(By.XPATH,"//span[contains(.,'Informasi Pelanggan')]")
+            pascabayar.click()
+        except Exception:
+            self.Log_write("Something went wrong [Sidebar not detected]","error")
+            self.Log_write("Trying to refresh it ...","error")
+            self.driver.refresh()
+            self.click_sidebar(trying=trying+1)
+            return
+            # exit(1)
+
     def search_pelanggan(self,id_pelanggan):
         try:
             input_pelanggan = self.driver.find_element('xpath',"//input[contains(@name,'idpel')]")
@@ -226,6 +253,36 @@ class ACMT:
                 return response
         else:
             return False
+
+    def lihat_foto_meteran_pasca(self, request_session):
+        for month in range (11, 6, -1):
+            for num_photo in range(1, 5):
+                try:
+                    WebDriverWait(self.driver, 5).until(EC.presence_of_element_located((By.XPATH,f"//img[contains(@title,'PHOTO {num_photo} - 2024{month}')]")))
+                    img_element = self.driver.find_element('xpath',f"//img[contains(@title,'PHOTO {num_photo} - 2024{month}')]")
+                except Exception as e:
+                    print(e)
+                    continue
+                image_width = img_element.get_attribute('width')
+                image_height = img_element.get_attribute('height')
+                if image_width > '0' or image_height > '0':
+                    image_source = img_element.get_attribute("src")
+                    try:
+                        response = request_session.get(image_source,timeout=30)
+                    except Exception as e:
+                        print(e)
+                        print(">> Trying to sleep it off, and trying again [5s]")
+                        sleep(5)
+                        response = request_session.get(image_source,timeout=30)
+                    if len(response.content) == 0:
+                        self.Log_write(f">> Warning image size is 0 bytes ...")
+                        continue
+                    else:
+                        self.Log_write(f">> Response image rumah [OK] : {response.status_code} | {image_source}")
+                        return response
+                else:
+                    continue
+        return False
 
     def lihat_foto(self,id_pelanggan,request_session):
         trying = 1
@@ -527,6 +584,7 @@ class SpiderACMT:
             self.driver = myutils.WebScraperUtils.start_web_dv(profile=None)
             self.acmt_crawler = ACMT(driver=self.driver)
         self.trying = 0
+        self.is_prabayar = True
 
     def run(self):
         self.driver.get(URL)
@@ -616,7 +674,11 @@ class SpiderACMT:
         selenium_cookies = driver.get_cookies()
         requests_cookies = {cookie['name']: cookie['value'] for cookie in selenium_cookies}
         session.cookies.update(requests_cookies)
-        acmt_crawler.click_sidebar()
+        if self.is_prabayar:
+            acmt_crawler.click_sidebar()
+        else:
+            acmt_crawler.Log_write('USING PASCABAYAR')
+            acmt_crawler.click_sidebar_info()
         acmt_crawler.Log_write('Logged in')
         nomer,row_checkpoint = acmt_crawler.ask_checkpoint()
         print(f">> Starting with row : {row_checkpoint}")
@@ -643,11 +705,14 @@ class SpiderACMT:
             acmt_crawler.Log_write(f'No.{nomer} Mencari foto . . .')
             acmt_crawler.search_pelanggan(str_pelanggan)
             foto_rumah = acmt_crawler.lihat_foto_rumah(str_pelanggan,request_session = session)
-            table_filter = acmt_crawler.table_filter(id_pelanggan=str_pelanggan)
-            if table_filter:
-                data_foto = acmt_crawler.lihat_foto(str_pelanggan,request_session = session)
+            if self.is_prabayar:
+                table_filter = acmt_crawler.table_filter(id_pelanggan=str_pelanggan)
+                if table_filter:
+                    data_foto = acmt_crawler.lihat_foto(str_pelanggan,request_session = session)
+                else:
+                    data_foto = False
             else:
-                data_foto = False
+                data_foto = acmt_crawler.lihat_foto_meteran_pasca(request_session = session)
             if foto_rumah == False:
                 acmt_crawler.Log_write("--> Foto rumah not found [No image] [ok] ..")
                 acmt_crawler.download_photo_rumah(foto_rumah,row,"False")
@@ -724,6 +789,8 @@ if __name__ == '__main__':
     main.acmt_crawler.cache_img_rumah = f"{snap}{cached_img_rumah}"
     checkpoint = f"/checkpoint_{profile}.json"
     main.acmt_crawler.checkpoint_path = f"{snap}{checkpoint}"
+    if IS_PASCABAYAR:
+        main.is_prabayar = False
     main.run()
     # Uncomment to use individual functionality you need
 
