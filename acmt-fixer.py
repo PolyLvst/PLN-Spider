@@ -31,32 +31,43 @@ def check_cache_img_and_rumah(path_cache_ids:str, path_meteran:str, path_rumah:s
     with open(path_rumah, "w") as f:
         json.dump(data_rumah, f)
 
-def combiner(cache_img, cache_img_rumah):
+def combiner(cache_img, cache_img_rumah, cache_img_rumah_samping):
     cache_meteran = f"./DataSnapshots/cache_img.json"
     data_meteran = {}
     cache_rumah = f"./DataSnapshots/cache_img_rumah.json"
     data_rumah = {}
+    cache_rumah_samping = f"./DataSnapshots/cache_img_rumah_samping.json"
+    data_rumah_samping = {}
     if os.path.exists(cache_meteran):
         with open(cache_meteran, "r") as f:
             data_meteran = json.load(f)
     if os.path.exists(cache_rumah):
         with open(cache_rumah, "r") as f:
             data_rumah = json.load(f)
+    if os.path.exists(cache_rumah_samping):
+        with open(cache_rumah_samping, "r") as f:
+            data_rumah_samping = json.load(f)
     
     with open(cache_img, "r") as f:
         data_meteran_chunk = json.load(f)
     with open(cache_img_rumah, "r") as f:
         data_rumah_chunk = json.load(f)
+    with open(cache_img_rumah_samping, "r") as f:
+        data_rumah_samping_chunk = json.load(f)
     
     for key, value in data_meteran_chunk.items():
         data_meteran[key] = value
     for key, value in data_rumah_chunk.items():
+        data_rumah[key] = value
+    for key, value in data_rumah_samping_chunk.items():
         data_rumah[key] = value
     
     with open(cache_meteran, "w") as f:
         json.dump(data_meteran, f)
     with open(cache_rumah, "w") as f:
         json.dump(data_rumah, f)
+    with open(cache_rumah_samping, "w") as f:
+        json.dump(data_rumah_samping, f)
     
     print("Rechunked ...")
 
@@ -70,4 +81,5 @@ if __name__ == "__main__":
     #         f"./DataSnapshots/cache_img_rumah_{profile_num}.json")
     for profile_num in range(1,5):
         combiner(f"./DataSnapshots/cache_img_{profile_num}.json",
-                f"./DataSnapshots/cache_img_rumah_{profile_num}.json")
+                f"./DataSnapshots/cache_img_rumah_{profile_num}.json",
+                f"./DataSnapshots/cache_img_rumah_samping_{profile_num}.json")
