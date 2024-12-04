@@ -845,7 +845,9 @@ if __name__ == '__main__':
     cached_img = f"/cache_img_{profile}.json"
     main.acmt_crawler.cache_img = f"{snap}{cached_img}"
     cached_img_rumah = f"/cache_img_rumah_{profile}.json"
+    cached_img_rumah_samping = f"/cache_img_rumah_samping_{profile}.json"
     main.acmt_crawler.cache_img_rumah = f"{snap}{cached_img_rumah}"
+    main.acmt_crawler.cache_img_rumah_samping = f"{snap}{cached_img_rumah_samping}"
     checkpoint = f"/checkpoint_{profile}.json"
     main.acmt_crawler.checkpoint_path = f"{snap}{checkpoint}"
     if IS_PASCABAYAR:
