@@ -60,7 +60,7 @@ def combiner(cache_img, cache_img_rumah, cache_img_rumah_samping):
     for key, value in data_rumah_chunk.items():
         data_rumah[key] = value
     for key, value in data_rumah_samping_chunk.items():
-        data_rumah[key] = value
+        data_rumah_samping[key] = value
     
     with open(cache_meteran, "w") as f:
         json.dump(data_meteran, f)
