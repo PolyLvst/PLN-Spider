@@ -55,10 +55,13 @@ class ACMT:
         self.temp_folder = "./TempImages/"
         os.makedirs(f"{self.temp_folder}/rumah", exist_ok=True)
         os.makedirs(f"{self.temp_folder}/meteran", exist_ok=True)
+        os.makedirs(f"{self.temp_folder}/rumah_samping", exist_ok=True)
         self.temp_folder_meteran = f"{self.temp_folder}meteran"
         self.temp_folder_rumah = f"{self.temp_folder}rumah"
+        self.temp_folder_rumah_samping = f"{self.temp_folder}rumah_samping"
         self.cache_img = f"{self.snapshots_folder}/cache_img.json"
         self.cache_img_rumah = f"{self.snapshots_folder}/cache_img_rumah.json"
+        self.cache_img_rumah_samping = f"{self.snapshots_folder}/cache_img_rumah_samping.json"
         self.ids_path = f"{self.snapshots_folder}/cached_ids.json"
         self.checkpoint_path = f'{self.snapshots_folder}/checkpoint.json'
         self.last_logout_time = 1
@@ -254,14 +257,40 @@ class ACMT:
         else:
             return False
 
+    def lihat_foto_rumah_samping(self, id_pelanggan, request_session):
+        WebDriverWait(self.driver, 5).until(EC.presence_of_element_located((By.XPATH,f"//img[contains(@title,'PHOTO RUMAH_2 - {id_pelanggan}')]")))
+        img_element = self.driver.find_element('xpath',f"//img[contains(@title,'PHOTO RUMAH_2 - {id_pelanggan}')]")
+        image_width = img_element.get_attribute('width')
+        image_height = img_element.get_attribute('height')
+        if image_width > '0' or image_height > '0':
+            image_source = img_element.get_attribute("src")
+            try:
+                response = request_session.get(image_source,timeout=30)
+            except Exception as e:
+                print(e)
+                print(">> Trying to sleep it off, and trying again [5s]")
+                sleep(5)
+                response = request_session.get(image_source,timeout=30)
+            if len(response.content) == 0:
+                self.Log_write(f">> Warning image size is 0 bytes ...")
+                return False
+            else:
+                self.Log_write(f">> Response image rumah samping [OK] : {response.status_code} | {image_source}")
+                return response
+        else:
+            return False
+
     def lihat_foto_meteran_pasca(self, request_session):
-        for month in range (11, 6, -1):
+        for month in range(12, 6, -1):
             for num_photo in range(1, 5):
+                curr_month = month
+                if month < 10:
+                    curr_month = f"0{month}"
                 try:
-                    WebDriverWait(self.driver, 5).until(EC.presence_of_element_located((By.XPATH,f"//img[contains(@title,'PHOTO {num_photo} - 2024{month}')]")))
-                    img_element = self.driver.find_element('xpath',f"//img[contains(@title,'PHOTO {num_photo} - 2024{month}')]")
+                    WebDriverWait(self.driver, 3).until(EC.presence_of_element_located((By.XPATH,f"//img[contains(@title,'PHOTO {num_photo} - 2024{curr_month}')]")))
+                    img_element = self.driver.find_element('xpath',f"//img[contains(@title,'PHOTO {num_photo} - 2024{curr_month}')]")
                 except Exception as e:
-                    print(e)
+                    print(f"//img[contains(@title,'PHOTO {num_photo} - 2024{curr_month}')] NOT FOUND")
                     continue
                 image_width = img_element.get_attribute('width')
                 image_height = img_element.get_attribute('height')
@@ -278,7 +307,7 @@ class ACMT:
                         self.Log_write(f">> Warning image size is 0 bytes ...")
                         continue
                     else:
-                        self.Log_write(f">> Response image rumah [OK] : {response.status_code} | {image_source}")
+                        self.Log_write(f">> Response image meteran [OK] : {response.status_code} | {image_source}")
                         return response
                 else:
                     continue
@@ -476,6 +505,28 @@ class ACMT:
                             "status_value":status_value}
             json.dump(data,f)
         self.Log_write("--> Cache img rumah updated ..")
+
+    def download_photo_rumah_samping(self, source_rumah, cur_pos, status_value):
+        self.Log_write("--> Updating cache img rumah samping ..")
+        cache_img = self.cache_img_rumah_samping
+        temp_folder_rumah = self.temp_folder_rumah_samping
+        response_rumah = source_rumah
+        if source_rumah == False:
+            image_path = "Tidak tersedia"
+        else:
+            image_name = f"image_{cur_pos}.jpg"  # You can change the file name logic as needed
+            image_path = os.path.join(temp_folder_rumah, image_name)
+            with open(image_path, "wb") as f:
+                f.write(response_rumah.content)
+        data = {}
+        if os.path.exists(cache_img):
+            with open(cache_img,"r") as f:
+                data = json.load(f)
+        with open(cache_img,"w") as f:
+            data[cur_pos] = {"img":image_path,
+                            "status_value":status_value}
+            json.dump(data,f)
+        self.Log_write("--> Cache img rumah samping updated ..")
 
     def download_photo(self,source,cur_pos,status_value):
         self.Log_write("--> Updating cache img ..")
@@ -705,6 +756,7 @@ class SpiderACMT:
             acmt_crawler.Log_write(f'No.{nomer} Mencari foto . . .')
             acmt_crawler.search_pelanggan(str_pelanggan)
             foto_rumah = acmt_crawler.lihat_foto_rumah(str_pelanggan,request_session = session)
+            foto_rumah_samping = acmt_crawler.lihat_foto_rumah_samping(str_pelanggan,request_session = session)
             if self.is_prabayar:
                 table_filter = acmt_crawler.table_filter(id_pelanggan=str_pelanggan)
                 if table_filter:
@@ -719,6 +771,13 @@ class SpiderACMT:
             else:
                 acmt_crawler.Log_write("--> Foto rumah found [saving] ..")
                 acmt_crawler.download_photo_rumah(foto_rumah,row,"True")
+
+            if foto_rumah_samping == False:
+                acmt_crawler.Log_write("--> Foto rumah samping not found [No image] [ok] ..")
+                acmt_crawler.download_photo_rumah_samping(foto_rumah_samping,row,"False")
+            else:
+                acmt_crawler.Log_write("--> Foto rumah samping found [saving] ..")
+                acmt_crawler.download_photo_rumah_samping(foto_rumah_samping,row,"True")
 
             if data_foto == False:
                 acmt_crawler.Log_write("--> Cache img updated [No image] ..")
